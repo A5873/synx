@@ -4,8 +4,6 @@ use std::io::Read;
 use anyhow::{Result, Context};
 use tree_magic_mini as magic;
 
-use crate::config::Config;
-
 /// FileType enum representing the detected file types
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum FileType {
@@ -98,7 +96,8 @@ fn check_for_shebang(path: &Path) -> Result<Option<FileType>> {
 /// Detect file type based on extension, content, and custom mappings
 pub fn detect_file_type(path: &Path) -> Result<FileType> {
     // Load config for custom mappings
-    let config = crate::config::Config::load(None)?;
+    let config = crate::config::Config::load(None)
+        .context("Failed to load configuration for file type detection")?;
     // First try to detect by extension
     if let Some(extension) = path.extension() {
         let ext = extension.to_string_lossy().to_lowercase();

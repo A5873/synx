@@ -72,10 +72,13 @@ impl Config {
         let config_file = if let Some(path) = config_path {
             path.to_path_buf()
         } else {
-            get_default_config_path()?
+            get_default_config_path().context("Failed to get default config path")?
         };
         
         if !config_file.exists() {
+            if config_path.is_some() {
+                return Err(anyhow!("Specified config file does not exist: {:?}", config_file));
+            }
             return Ok(Self::default());
         }
         
@@ -84,17 +87,18 @@ impl Config {
         
         let mut contents = String::new();
         file.read_to_string(&mut contents)
-            .context("Failed to read config file")?;
+            .context(format!("Failed to read config file: {:?}", config_file))?;
         
         let config: Config = toml::from_str(&contents)
-            .context("Failed to parse config file")?;
+            .context(format!("Failed to parse TOML in config file: {:?}", config_file))?;
         
         Ok(config)
     }
     
     /// Generate a default configuration file
     pub fn generate_default_config() -> Result<PathBuf> {
-        let config_path = get_default_config_path()?;
+        let config_path = get_default_config_path()
+            .context("Failed to determine default config path")?;
         
         // Create the config directory if it doesn't exist
         if let Some(parent) = config_path.parent() {
@@ -158,6 +162,60 @@ impl Default for Config {
             enabled: true,
         });
         
+        // Add HTML validator
+        validators.insert("html".to_string(), ValidatorConfig {
+            command: Some("tidy".to_string()),
+            args: Some(vec!["-q".to_string(), "-e".to_string()]),
+            strict: false,
+            timeout: Some(10),
+            enabled: true,
+        });
+        
+        // Add CSS validator
+        validators.insert("css".to_string(), ValidatorConfig {
+            command: Some("csslint".to_string()),
+            args: None,
+            strict: false,
+            timeout: Some(10),
+            enabled: true,
+        });
+        
+        // Add Dockerfile validator
+        validators.insert("dockerfile".to_string(), ValidatorConfig {
+            command: Some("hadolint".to_string()),
+            args: None,
+            strict: true,
+            timeout: Some(10),
+            enabled: true,
+        });
+        
+        // Add Shell validator
+        validators.insert("shell".to_string(), ValidatorConfig {
+            command: Some("shellcheck".to_string()),
+            args: None,
+            strict: false,
+            timeout: Some(10),
+            enabled: true,
+        });
+        
+        // Add Markdown validator
+        validators.insert("markdown".to_string(), ValidatorConfig {
+            command: Some("mdl".to_string()),
+            args: None,
+            strict: false,
+            timeout: Some(10),
+            enabled: true,
+        });
+        
+        // Add Rust validator
+        validators.insert("rust".to_string(), ValidatorConfig {
+            command: Some("rustc".to_string()),
+            args: Some(vec!["--emit=check".to_string(), "--crate-type=lib".to_string()]),
+            strict: true,
+            timeout: Some(15),
+            enabled: true,
+        });
+        
         // Create some default file mappings
         let mut file_mappings = HashMap::new();
         file_mappings.insert("Dockerfile".to_string(), "dockerfile".to_string());
@@ -183,4 +241,3 @@ pub fn get_default_config_path() -> Result<PathBuf> {
     
     Ok(home_dir.join(".config").join("synx").join("config.toml"))
 }
-

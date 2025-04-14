@@ -1,0 +1,170 @@
+        run: |
+          cd target/${{ matrix.target }}/release
+          strip ${{ matrix.artifact_name }}
+          chmod +x ${{ matrix.artifact_name }}
+          tar -czf ${{ matrix.asset_name }}.tar.gz ${{ matrix.artifact_name }}
+      
+      - name: Prepare binary (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          cd target/${{ matrix.target }}/release
+          7z a ${{ matrix.asset_name }}.zip ${{ matrix.artifact_name }}
+        shell: pwsh
+      
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.asset_name }}
+          path: |
+            target/${{ matrix.target }}/release/${{ matrix.asset_name }}.tar.gz
+            target/${{ matrix.target }}/release/${{ matrix.asset_name }}.zip
+
+  create_release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      
+      # Generate changelog from commits
+      - name: Generate Changelog
+        id: changelog
+        uses: metcalfc/changelog-generator@v4.1.0
+        with:
+          myToken: ${{ secrets.GITHUB_TOKEN }}
+          base-ref: 'v0.0.0'
+      
+      # Download all build artifacts
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: artifacts
+      
+      # Create GitHub Release
+      - name: Create GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Synx ${{ github.ref_name }}
+          body: |
+            # Synx ${{ github.ref_name }}
+            
+            ${{ steps.changelog.outputs.changelog }}
+            
+            ## Installation
+            
+            ### Linux
+            ```bash
+            curl -L https://github.com/A5873/synx/releases/download/${{ github.ref_name }}/synx-linux-amd64.tar.gz | tar xz
+            sudo mv synx /usr/local/bin/
+            ```
+            
+            ### macOS
+            ```bash
+            curl -L https://github.com/A5873/synx/releases/download/${{ github.ref_name }}/synx-macos-amd64.tar.gz | tar xz
+            sudo mv synx /usr/local/bin/
+            ```
+            
+            ### Windows
+            Download the Windows binary from the release assets.
+          draft: false
+          prerelease: false
+          files: |
+            artifacts/synx-linux-amd64/*.tar.gz
+            artifacts/synx-macos-amd64/*.tar.gz
+            artifacts/synx-windows-amd64.exe/*.zip
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    name: Build Release
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            artifact_name: synx
+            asset_name: synx-linux-amd64
+          - os: windows-latest
+            artifact_name: synx.exe
+            asset_name: synx-windows-amd64.exe
+          - os: macos-latest
+            artifact_name: synx
+            asset_name: synx-macos-amd64
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.asset_name }}
+          path: target/release/${{ matrix.artifact_name }}
+
+  create_release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+      - name: Output Release URL
+        run: echo "Release URL = ${{ steps.create_release.outputs.upload_url }}"
+      - name: Download all workflow artifacts
+        uses: actions/download-artifact@v3
+      - name: Upload Linux Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: synx-linux-amd64/synx
+          asset_name: synx-linux-amd64
+          asset_content_type: application/octet-stream
+      - name: Upload Windows Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: synx-windows-amd64.exe/synx.exe
+          asset_name: synx-windows-amd64.exe
+          asset_content_type: application/octet-stream
+      - name: Upload macOS Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: synx-macos-amd64/synx
+          asset_name: synx-macos-amd64
+          asset_content_type: application/octet-stream
+
