@@ -1,0 +1,64 @@
+# This YAML file contains syntax errors and should fail validation
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: invalid-app
+  labels:
+    app: invalid-app
+    tier: backend
+spec:
+  replicas: 3
+# Invalid indentation below
+selector:
+  matchLabels:
+    app: invalid-app
+  template:
+  metadata:  # This line is misaligned
+      labels:
+        app: invalid-app
+    spec:  # Wrong indentation level
+      containers:
+      - name: app-container
+        image: invalid-app:1.0.0
+        # Missing colon after ports
+        ports
+          - containerPort: 8080
+        resources: {
+          # Invalid YAML using JSON format incorrectly
+          limits: {cpu: 1, memory: "512Mi",}
+          requests: {cpu: 0.5, memory: "256Mi"}
+        }
+        env:
+        # Missing dash for list item
+        name: MODE
+        value: "production"
+        # Invalid mapping format (no value)
+        - name: LOG_LEVEL: "info"
+        # Additional value with no key
+        - name: DB_HOST
+          "localhost"
+        # Mixed tab and space indentation
+		# Invalid tabbed line
+        livenessProbe:
+          httpGet:
+            path: /health
+          initialDelaySeconds: 30
+          # Duplicate key
+          initialDelaySeconds: 20
+---
+# Multiple documents with errors
+kind: Service
+# Missing required apiVersion field
+metadata:
+  : invalid-service  # Missing key
+  namespace: production
+spec:
+  selector
+    app: invalid-app  # Missing colon
+  ports:
+  - port: 80
+    - targetPort: 8080  # Incorrect indentation for map item
+    protocol: TCP
+  type: ClusterIP
+

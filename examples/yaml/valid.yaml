@@ -1,0 +1,107 @@
+# Example Kubernetes deployment configuration
+# This is a valid YAML file that should pass validation
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: example-webapp
+  namespace: production
+  labels:
+    app: example-webapp
+    tier: frontend
+    environment: production
+  annotations:
+    description: "Frontend web application deployment"
+    createdBy: "DevOps Team"
+spec:
+  # Define the number of replicas to maintain
+  replicas: 3
+  selector:
+    matchLabels:
+      app: example-webapp
+  # Define update strategy
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        app: example-webapp
+        tier: frontend
+    spec:
+      containers:
+      - name: web-container
+        image: example-webapp:1.2.3
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        # Resource limits and requests
+        resources:
+          limits:
+            cpu: "1"
+            memory: "512Mi"
+          requests:
+            cpu: "0.5"
+            memory: "256Mi"
+        # Health checks
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        # Environment variables
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: LOG_LEVEL
+          value: "info"
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: database_host
+        # Mount volumes
+        volumeMounts:
+        - name: config-volume
+          mountPath: /app/config
+        - name: logs-volume
+          mountPath: /app/logs
+      # Define the volumes
+      volumes:
+      - name: config-volume
+        configMap:
+          name: app-config
+      - name: logs-volume
+        emptyDir: {}
+      # Pull secrets
+      imagePullSecrets:
+      - name: registry-credentials
+---
+# Service definition for the deployment
+apiVersion: v1
+kind: Service
+metadata:
+  name: example-webapp-service
+  namespace: production
+  labels:
+    app: example-webapp
+spec:
+  selector:
+    app: example-webapp
+  ports:
+  - port: 80
+    targetPort: 8080
+    protocol: TCP
+  type: ClusterIP
+

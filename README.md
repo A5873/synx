@@ -152,26 +152,62 @@ synx --init-config
 
 # Use strict mode (treat warnings as errors)
 synx --strict config.yaml
-```
-
 ## Supported File Types
 
 Synx can validate the following file types:
 
-- **Python** (`.py`)
-- **JavaScript** (`.js`)
-- **TypeScript** (`.ts`)
-- **HTML** (`.html`, `.htm`)
-- **CSS** (`.css`)
-- **JSON** (`.json`)
-- **YAML** (`.yaml`, `.yml`)
-- **TOML** (`.toml`)
-- **Dockerfile** (`Dockerfile`)
-- **Shell** (`.sh`, `.bash`, `.zsh`)
-- **Markdown** (`.md`, `.markdown`)
-- **C** (`.c`)
-- **C++** (`.cpp`, `.cc`, `.cxx`)
-- **Rust** (`.rs`)
+| File Type | Extensions | Validator Tool | Installation |
+|-----------|------------|----------------|-------------|
+| Python | `.py` | `python -m py_compile` | [python.org](https://www.python.org/downloads/) |
+| JavaScript | `.js` | `node --check` | [nodejs.org](https://nodejs.org/) |
+| TypeScript | `.ts` | `tsc --noEmit` | `npm install -g typescript` |
+| HTML | `.html`, `.htm` | `tidy` | `apt install tidy` |
+| CSS | `.css` | `csslint` | `npm install -g csslint` |
+| JSON | `.json` | `jq` | `apt install jq` |
+| YAML | `.yaml`, `.yml` | `yamllint` | `pip install yamllint` |
+| TOML | `.toml` | Built-in | No external dependency |
+| Dockerfile | `Dockerfile` | `hadolint` | [hadolint.github.io](https://hadolint.github.io/) |
+| Shell | `.sh`, `.bash`, `.zsh` | `shellcheck` | `apt install shellcheck` |
+| Markdown | `.md`, `.markdown` | `mdl` | `gem install mdl` |
+| C | `.c` | `gcc -fsyntax-only` | `apt install gcc` |
+| C++ | `.cpp`, `.cc`, `.cxx` | `g++ -fsyntax-only` | `apt install g++` |
+| Rust | `.rs` | `rustc --emit=check` | [rust-lang.org](https://www.rust-lang.org/tools/install) |
+
+Support for additional file types can be added through configuration.
+
+### Example Files
+
+The repository includes example files for each supported file type in the `examples` directory:
+
+```
+examples/
+├── python/
+│   ├── valid.py        # A valid Python example
+│   └── invalid.py      # A Python file with syntax errors
+├── javascript/
+├── json/
+├── yaml/
+├── html/
+├── css/
+├── docker/
+└── shell/
+```
+
+These examples serve as:
+
+1. **Test cases** for the validator
+2. **Documentation** showing proper and improper syntax
+3. **Learning resources** for best practices in different languages
+
+#### Running the Example Tests
+
+You can run the examples test script to validate all example files:
+
+```bash
+cargo run --bin run_examples
+```
+
+This will verify that valid examples pass validation and invalid examples fail validation, confirming that Synx is working correctly.
 
 Support for additional file types can be added through configuration.
 
