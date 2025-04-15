@@ -1,0 +1,234 @@
+# YAML Anchors and References Test File
+# This file demonstrates YAML anchors (&), aliases (*), and merge keys (<<)
+---
+# =============================================
+# Basic Anchor and Alias Usage
+# =============================================
+
+# Basic anchor example (&) and alias reference (*)
+basic_example:
+  # Define an anchor called 'shared_item'
+  common_item: &shared_item
+    name: Standard Configuration
+    version: 1.0
+    active: true
+
+  # Reference the anchor using an alias
+  item1: *shared_item     # This will be identical to common_item
+
+  # Multiple references to the same anchor
+  item2: *shared_item     # This will also be identical to common_item
+  # Modifying an alias (creates a new nested object)
+  item3:
+    <<: *shared_item      # Merge the shared_item properties
+    version: 2.0          # Override the version property
+    new_prop: custom      # Add a new property
+
+# =============================================
+# Merge Keys Example (<<)
+# =============================================
+
+# Using the merge key to combine multiple anchors
+templates:
+  # Base configuration anchor
+  base_config: &base_config
+    logging: enabled
+    cache_ttl: 3600
+    retry: 3
+
+  # Database configuration anchor
+  db_config: &db_config
+    host: localhost
+    port: 5432
+    timeout: 30
+
+  # Security configuration anchor
+  security_config: &security_config
+    encryption: AES256
+    ssl: true
+
+# Production configuration using multiple anchors
+production_config:
+  <<: [*base_config, *db_config, *security_config]  # Merge multiple anchors
+  environment: production
+  cache_ttl: 7200  # Override specific values
+
+# Development configuration
+development_config:
+  <<: *base_config        # Merge just the base config
+  environment: development
+  host: 127.0.0.1         # Add development-specific settings
+  port: 5433
+
+# =============================================
+# Common Patterns and Best Practices
+# =============================================
+
+# Pattern: Reusable configuration components
+configs:
+  # Define anchors for reusable components
+  default_timeouts: &timeouts
+    connect: 5s
+    read: 10s
+    write: 5s
+
+  http_client:
+    timeouts: *timeouts     # Reuse the timeouts configuration
+    max_connections: 100
+  database:
+    timeouts: *timeouts     # Same timeouts for database
+    pool_size: 20
+
+# Pattern: Environment-specific overrides
+environments:
+  # Base environment configuration
+  default_env: &default_env
+    log_level: info
+    feature_flags:
+      new_ui: false
+      api_v2: false
+
+  # Production overrides
+  production:
+    <<: *default_env
+    log_level: warn
+    feature_flags:
+      new_ui: true
+      api_v2: true
+  # Staging overrides
+  staging:
+    <<: *default_env
+    feature_flags:
+      new_ui: true
+      api_v2: false
+      debug_mode: true    # Added property
+
+# =============================================
+# Common Pitfalls and Errors
+# =============================================
+
+# ERROR 1: Reference to undefined anchor
+invalid_references:
+  # Note: The next line would cause an error when parsed by most YAML processors
+  # undefined_ref: *undefined_anchor  # Error: Refers to an undefined anchor
+  undefined_ref_example: "This would reference *undefined_anchor if uncommented"
+
+# ERROR 2: Circular references
+circular_references:
+  # These create a circular reference chain
+  # Comment out to avoid actual circular reference error
+  # node1: &node1
+  #   next: &node2
+  #     value: 200
+  #     prev: *node1    # This reference creates a cycle
+  example: "The above would create a circular reference if uncommented"
+
+# ERROR 3: Anchor names with special characters
+invalid_anchor_names:
+  # Note: The line below would cause an error in a YAML processor
+  # &invalid:name value: test     # Anchor names should not contain colons
+  invalid_example: "Would use &invalid:name if not commented out"
+
+  valid_anchor: &valid_name "Valid anchor name (alphanumeric/underscores)"
+  reference_to_valid: *valid_name
+
+# =============================================
+# Complex Nested Structures with Anchors
+# =============================================
+
+# Complex Kubernetes-like configuration example
+kubernetes_config:
+  # Define a base container template
+  base_container: &base_container
+    resources:
+      limits:
+        cpu: 100m
+        memory: 128Mi
+      requests:
+        cpu: 50m
+        memory: 64Mi
+    livenessProbe:
+      httpGet:
+        port: 8080
+        path: /health
+      initialDelaySeconds: 10
+
+  # Define a base pod template
+  base_pod: &base_pod
+    metadata:
+      labels:
+        app: example
+        tier: backend
+    spec:
+      containers: []    # To be filled later
+      restartPolicy: Always
+  # Configuration using anchors and aliases
+  deployments:
+    api:
+      <<: *base_pod
+      spec:
+        containers:
+          - name: api-container
+            <<: *base_container
+            image: api:1.0
+            ports:
+              - containerPort: 8080
+    worker:
+      <<: *base_pod
+      metadata:
+        labels:
+          tier: worker    # Override base pod label
+      spec:
+        containers:
+          - name: worker-container
+            <<: *base_container
+            image: worker:1.0
+            # No ports defined for worker
+            livenessProbe:     # Overriding livenessProbe
+              exec:
+                command: ["./health_check.sh"]
+              initialDelaySeconds: 30  # Different delay
+
+# =============================================
+# Anti-patterns to Avoid
+# =============================================
+
+# Anti-pattern 1: Overusing anchors for minimal reuse
+overusing_anchors:
+  # Anchor used only once provides no value
+  used_once: &used_once
+    prop1: value1
+    prop2: value2
+
+  reference: *used_once   # Only used once, not beneficial
+
+# Anti-pattern 2: Too many levels of inheritance
+deep_inheritance:
+  level1: &level1
+    prop1: value1
+
+  level2:
+    &level2
+    <<: *level1
+    prop2: value2
+    level3:
+      &level3
+      <<: *level2
+      prop3: value3
+
+      level4:
+        <<: *level3    # So deep it becomes hard to understand
+        prop4: value4
+
+# Anti-pattern 3: Inconsistent overrides
+inconsistent:
+  config_base: &config_base
+    database:
+      host: localhost
+      port: 5432
+      user: admin
+
+  # Inconsistent - overrides host but not in the same structure
+  dev:
+    <<: *config_base
+    database_host: 127.0.0.1  # Should be database.host instead

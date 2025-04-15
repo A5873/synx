@@ -1,0 +1,274 @@
+# YAML Nested Structures Test File
+# This file demonstrates complex YAML structural patterns
+---
+# =============================================
+# Basic Nested Structures
+# =============================================
+
+# Simple nesting of mappings (dictionaries)
+person:
+  name:
+    first: John
+    last: Doe
+  contact:
+    email: john.doe@example.com
+    phone:
+      home: 555-1234
+      work: 555-5678
+      mobile: 555-9012
+  address:
+    street: 123 Main St
+    city: Anytown
+    state: CA
+    postal_code: "90210"
+
+# Simple nesting of sequences (arrays)
+fibonacci_sequence:
+  - 0
+  - 1
+  - 1
+  - 2
+  - 3
+  - 5
+  - 8
+  - 13
+  - 21
+
+# =============================================
+# Combining Sequences and Mappings
+# =============================================
+
+# Sequence of mappings (most common pattern in data files)
+users:
+  - id: 1
+    name: Alice
+    roles:
+      - admin
+      - user
+    active: true
+  - id: 2
+    name: Bob
+    roles:
+      - user
+    active: false
+  - id: 3
+    name: Charlie
+    roles:
+      - user
+      - developer
+    active: true
+
+# Mapping of sequences
+category_items:
+  fruits:
+    - apple
+    - banana
+    - orange
+  vegetables:
+    - carrot
+    - lettuce
+    - cucumber
+  grains:
+    - rice
+    - wheat
+    - barley
+
+# Deeply nested combination
+company:
+  departments:
+    engineering:
+      teams:
+        - name: frontend
+          employees:
+            - name: Emma
+              skills:
+                - JavaScript
+                - React
+                - CSS
+            - name: Noah
+              skills:
+                - TypeScript
+                - Angular
+        - name: backend
+          employees:
+            - name: Olivia
+              skills:
+                - Python
+                - Django
+                - SQL
+    marketing:
+      teams:
+        - name: content
+          employees:
+            - name: William
+              responsibilities:
+                - blogging
+                - social media
+                - newsletters
+
+# =============================================
+# Block Style vs Flow Style
+# =============================================
+
+# Block style (standard indentation)
+block_style:
+  mapping:
+    key1: value1
+    key2: value2
+  sequence:
+    - item1
+    - item2
+    - item3
+
+# Flow style (JSON-like with braces and brackets)
+flow_style:
+  mapping: {key1: value1, key2: value2}
+  sequence: [item1, item2, item3]
+
+# Mixed styles
+mixed_style:
+  blockmapping:
+    key1: value1
+    flowsequence: [item1, item2]
+  flowmapping: {key1: value1, key2: value2}
+  blocksequence:
+    - item1
+    - flowmapping: {nested: value}
+
+# =============================================
+# Edge Cases and Potential Pitfalls
+# =============================================
+
+# Empty collections
+empty:
+  empty_map: {}
+  empty_list: []
+  empty_string: ""
+  # An empty value is null
+  null_value:
+
+# Single-item collections
+single_item:
+  single_item_map: {only: one}
+  single_item_list: [lonely]
+
+# Keys with same names at different levels
+duplicate_keys:
+  data:
+    id: 1
+    name: Outer
+  id: 2  # Different key than data.id
+
+# Very deeply nested structure (can be hard to maintain)
+deep_nesting:
+  level1:
+    level2:
+      level3:
+        level4:
+          level5:
+            level6:
+              level7:
+                level8:
+                  value: deep
+
+# =============================================
+# Special Structure Patterns
+# =============================================
+
+# Heterogeneous sequences (items of different types)
+heterogeneous_list:
+  - string item
+  - 42
+  - true
+  - {key: value}
+  - [nested, list]
+  - null
+
+# Complex keys (not just simple strings)
+complex_keys:
+  ? [composite, key]  # Key is a sequence
+  : value1
+  ? {key1: val1, key2: val2}  # Key is a mapping
+  : value2
+  ? !!binary "YmluYXJ5"  # Key is binary data
+  : value3
+
+# Sparse arrays (with holes)
+sparse_array:
+  # Specify specific indices in sequence
+  ? 0
+  : First
+  ? 2
+  : Third
+  ? 5
+  : Sixth
+
+# =============================================
+# Validation Examples
+# =============================================
+
+# Object with required fields (validation concept)
+user_schema:
+  type: object
+  required:
+    - username
+    - email
+  properties:
+    username:
+      type: string
+      min_length: 3
+    email:
+      type: string
+      pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+    age:
+      type: integer
+      minimum: 18
+    address:
+      type: object
+      properties:
+        street:
+          type: string
+        city:
+          type: string
+        country:
+          type: string
+
+# Typical REST API response structure
+api_response:
+  status: success
+  code: 200
+  data:
+    users:
+      - id: 1
+        name: John Doe
+        email: john@example.com
+      - id: 2
+        name: Jane Doe
+        email: jane@example.com
+  meta:
+    total: 2
+    page: 1
+    per_page: 10
+    total_pages: 1
+
+# GraphQL-like nested data
+graphql_response:
+  data:
+    user:
+      id: "123"
+      name: "Alice"
+      friends:
+        - id: "456"
+          name: "Bob"
+          posts:
+            - id: "post-1"
+              title: "Hello world"
+              comments:
+                - id: "comment-1"
+                  text: "Great post!"
+                  author:
+                    id: "789"
+                    name: "Charlie"
+        - id: "789"
+          name: "Charlie"
+          posts: []
