@@ -200,6 +200,40 @@ fn is_likely_tsx(content: &str) -> bool {
     is_ts && is_jsx
 }
 
+/// Check if file content matches JavaScript patterns
+fn is_likely_javascript(content: &str) -> bool {
+    let content_lower = content.to_lowercase();
+    
+    // Common JavaScript keywords and patterns
+    let js_patterns = [
+        // Functions
+        "function ", "() =>", "function(", "() {", ") {",
+        // Variable declarations
+        "var ", "let ", "const ", 
+        // Common statements
+        "return ", "if (", "for (", "while (", "switch (", "try {", "catch (", 
+        // Modern JS features
+        "async ", "await ", "class ", "extends ", "static ", "get ", "set ",
+        "import ", "export ", "from ", "default ", 
+        // Common methods
+        ".map(", ".filter(", ".reduce(", ".foreach(", ".then(", ".catch(",
+        // JS built-ins
+        "console.log", "document.", "window.", "object.", "array.", "string.",
+        "promise.", "fetch(", "json.", "math.", 
+        // Common JS libraries
+        "$(", "jquery", "react", "vue", "angular", "lodash", "underscore",
+        "require(", "module.exports", "exports."
+    ];
+    
+    // Count how many JS patterns we find
+    let pattern_count = js_patterns.iter()
+        .filter(|&pattern| content_lower.contains(pattern))
+        .count();
+    
+    // If we find multiple JS patterns, it's likely JavaScript
+    pattern_count >= 3
+}
+
 /// Check if file content matches TypeScript patterns
 fn is_likely_typescript(content: &str) -> bool {
     let content_lower = content.to_lowercase();
@@ -303,36 +337,32 @@ fn is_likely_svelte(content: &str) -> bool {
     
     // Svelte-specific directives and patterns
     let svelte_patterns = [
-    let content_lower = content.to_lowercase();
-    
-    // Common JavaScript keywords and patterns
-    let js_patterns = [
-        // Functions
-        "function ", "() =>", "function(", "() {", ") {",
-        // Variable declarations
-        "var ", "let ", "const ", 
-        // Common statements
-        "return ", "if (", "for (", "while (", "switch (", "try {", "catch (", 
-        // Modern JS features
-        "async ", "await ", "class ", "extends ", "static ", "get ", "set ",
-        "import ", "export ", "from ", "default ", 
-        // Common methods
-        ".map(", ".filter(", ".reduce(", ".forEach(", ".then(", ".catch(",
-        // JS built-ins
-        "console.log", "document.", "window.", "Object.", "Array.", "String.",
-        "Promise.", "fetch(", "JSON.", "Math.", 
-        // Common JS libraries
-        "$(", "jQuery", "React", "Vue", "angular", "lodash", "underscore",
-        "require(", "module.exports", "exports."
+        // Svelte-specific syntax
+        "{#if", "{:else", "{/if}",
+        "{#each", "{/each}",
+        "{#await", "{:then", "{:catch", "{/await}",
+        "@html", "@debug",
+        "@const", 
+        
+        // Svelte lifecycle and reactive declarations
+        "onMount", "onDestroy", "beforeUpdate", "afterUpdate",
+        "$: ", "reactive", 
+        
+        // Svelte bindings and event handling
+        "bind:", "on:", "use:", "transition:", "animate:", "class:",
+        
+        // Svelte stores
+        "writable(", "readable(", "derived(", "$store"
     ];
     
-    // Count how many JS patterns we find
-    let pattern_count = js_patterns.iter()
+    // Count Svelte pattern matches
+    let pattern_count = svelte_patterns.iter()
         .filter(|&pattern| content_lower.contains(pattern))
         .count();
     
-    // If we find multiple JS patterns, it's likely JavaScript
-    pattern_count >= 3
+    // If we have both structural indicators (script/style tags without template tags)
+    // or multiple Svelte-specific patterns, it's likely Svelte
+    (has_script_tag && has_style_tag && !content_lower.contains("<template")) || pattern_count >= 2
 }
 
 /// Detect file type based on extension, content, and custom mappings
