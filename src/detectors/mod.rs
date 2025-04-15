@@ -10,14 +10,20 @@ pub enum FileType {
     Python,
     JavaScript,
     TypeScript,
+    Jsx,             // React JSX files
+    Tsx,             // React TSX files
+    Vue,             // Vue.js single-file components
+    Svelte,          // Svelte components
     Html,
     Css,
+    Scss,            // SASS/SCSS stylesheets
     Json,
     Yaml,
     Toml,
     Dockerfile,
     Shell,
     Markdown,
+    GraphQL,         // GraphQL schema and query files
     C,
     Cpp,
     Rust,
@@ -30,14 +36,20 @@ impl std::fmt::Display for FileType {
             FileType::Python => write!(f, "Python"),
             FileType::JavaScript => write!(f, "JavaScript"),
             FileType::TypeScript => write!(f, "TypeScript"),
+            FileType::Jsx => write!(f, "JSX"),
+            FileType::Tsx => write!(f, "TSX"),
+            FileType::Vue => write!(f, "Vue"),
+            FileType::Svelte => write!(f, "Svelte"),
             FileType::Html => write!(f, "HTML"),
             FileType::Css => write!(f, "CSS"),
+            FileType::Scss => write!(f, "SCSS"),
             FileType::Json => write!(f, "JSON"),
             FileType::Yaml => write!(f, "YAML"),
             FileType::Toml => write!(f, "TOML"),
             FileType::Dockerfile => write!(f, "Dockerfile"),
             FileType::Shell => write!(f, "Shell"),
             FileType::Markdown => write!(f, "Markdown"),
+            FileType::GraphQL => write!(f, "GraphQL"),
             FileType::C => write!(f, "C"),
             FileType::Cpp => write!(f, "C++"),
             FileType::Rust => write!(f, "Rust"),
@@ -53,12 +65,18 @@ fn mime_to_file_type(mime: &str) -> Option<FileType> {
         "text/x-python" | "application/x-python-code" | "text/x-python-script" => Some(FileType::Python),
         "application/javascript" | "text/javascript" | "application/x-javascript" => Some(FileType::JavaScript),
         "application/typescript" | "text/typescript" => Some(FileType::TypeScript),
+        "text/jsx" | "application/jsx" | "text/react" => Some(FileType::Jsx),
+        "text/tsx" | "application/tsx" => Some(FileType::Tsx),
+        "text/vue" | "application/vue" => Some(FileType::Vue),
+        "text/svelte" | "application/svelte" => Some(FileType::Svelte),
         "text/html" | "application/xhtml+xml" | "text/xml" | "application/xml" | "text/plain+html" => Some(FileType::Html),
         "text/css" => Some(FileType::Css),
+        "text/scss" | "text/x-scss" => Some(FileType::Scss),
         "application/json" | "application/ld+json" => Some(FileType::Json),
         "application/yaml" | "text/yaml" | "application/x-yaml" => Some(FileType::Yaml),
         "application/toml" | "text/toml" | "application/x-toml" => Some(FileType::Toml),
         "text/markdown" | "text/x-markdown" => Some(FileType::Markdown),
+        "application/graphql" | "text/graphql" => Some(FileType::GraphQL),
         "text/x-c" | "text/x-csrc" => Some(FileType::C),
         "text/x-c++" | "text/x-c++src" => Some(FileType::Cpp),
         "text/x-rust" | "text/rust" => Some(FileType::Rust),
@@ -77,8 +95,20 @@ fn mime_to_file_type(mime: &str) -> Option<FileType> {
                 return Some(FileType::Python);
             } else if mime.contains("javascript") || mime.contains("js") || mime.contains("ecmascript") {
                 return Some(FileType::JavaScript);
+            } else if mime.contains("jsx") || mime.contains("react") {
+                return Some(FileType::Jsx);
+            } else if mime.contains("tsx") {
+                return Some(FileType::Tsx);
             } else if mime.contains("typescript") || mime.contains("ts") {
                 return Some(FileType::TypeScript);
+            } else if mime.contains("vue") {
+                return Some(FileType::Vue);
+            } else if mime.contains("svelte") {
+                return Some(FileType::Svelte);
+            } else if mime.contains("scss") || mime.contains("sass") {
+                return Some(FileType::Scss);
+            } else if mime.contains("graphql") || mime.contains("gql") {
+                return Some(FileType::GraphQL);
             } else if mime.contains("markdown") || mime.contains("md") {
                 return Some(FileType::Markdown);
             } else if mime.contains("shell") || mime.contains("sh") {
@@ -116,9 +146,163 @@ fn check_for_shebang(path: &Path) -> Result<Option<FileType>> {
     
     Ok(None)
 }
+/// Check if file content matches JSX patterns
+fn is_likely_jsx(content: &str) -> bool {
+    let content_lower = content.to_lowercase();
+    
+    // Common JSX patterns and keywords
+    let jsx_patterns = [
+        "import react", 
+        "react.component", 
+        "react.createclass", 
+        "react.fragment",
+        "import * as react",
+        "<>", "</>",                   // React fragments
+        "componentdidmount",           // React lifecycle methods
+        "componentdidupdate", 
+        "componentshouldupdate",
+        "render() {",                  // Render method in class components
+        "usestate",                    // React hooks
+        "useeffect", 
+        "usecontext", 
+        "usereducer",
+        "createelement",               // React.createElement
+        "props.",                      // Props access
+        "className=",                  // JSX className attribute
+        "</",                          // Closing JSX tag
+        "export default function",     // Function component export
+        "react.memo"                   // React.memo for memoization
+    ];
+    
+    // Count JSX pattern matches
+    let pattern_count = jsx_patterns.iter()
+        .filter(|&pattern| content_lower.contains(pattern))
+        .count();
+    
+    // Check for JSX syntax patterns (HTML-like tags with JS expressions)
+    let has_jsx_syntax = content.contains("<") && 
+                         content.contains("/>") &&
+                         (content.contains("{") && content.contains("}"));
+    
+    // If we have multiple JSX patterns or clear JSX syntax, it's likely JSX
+    pattern_count >= 2 || has_jsx_syntax
+}
 
-/// Check if file content matches JavaScript patterns
-fn is_likely_javascript(content: &str) -> bool {
+/// Check if file content matches TSX patterns
+fn is_likely_tsx(content: &str) -> bool {
+    // First check if it's TypeScript
+    let is_ts = is_likely_typescript(content);
+    
+    // Then check if it has JSX patterns too
+    let is_jsx = is_likely_jsx(content);
+    
+    // If both conditions are met, it's likely TSX
+    is_ts && is_jsx
+}
+
+/// Check if file content matches TypeScript patterns
+fn is_likely_typescript(content: &str) -> bool {
+    let content_lower = content.to_lowercase();
+    
+    // Common TypeScript specific patterns and keywords
+    let ts_patterns = [
+        // TypeScript type annotations
+        ": string", ": number", ": boolean", ": any", ": void",
+        ": array<", ": readonly", ": Promise<", ": Map<", ": Set<",
+        
+        // Interface and type definitions
+        "interface ", "type ", "implements ", "extends ", "namespace ",
+        
+        // TypeScript modifiers
+        "readonly ", "private ", "protected ", "public ", "abstract ", 
+        "override ", "declare ",
+        
+        // TypeScript utility types
+        "Partial<", "Required<", "Record<", "Pick<", "Omit<",
+        "Exclude<", "Extract<", "NonNullable<", "ReturnType<", "InstanceType<",
+        
+        // Other TypeScript features
+        "as const", "as any", "as ", "keyof ", "typeof ",
+        "enum ", "module ", "import type", "export type",
+        "?: ", "!: ", "!.", "?.",
+        
+        // Generic types
+        "<T>", "<T extends", "<K, V>", "<T, K>", "<T, K extends", "T | null"
+    ];
+    
+    // Count TypeScript pattern matches
+    let pattern_count = ts_patterns.iter()
+        .filter(|&pattern| content_lower.contains(pattern))
+        .count();
+    
+    // If we find multiple TypeScript patterns, it's likely TypeScript
+    pattern_count >= 3
+}
+
+/// Check if file content matches Vue component patterns
+fn is_likely_vue(content: &str) -> bool {
+    let content_lower = content.to_lowercase();
+    
+    // Quick check for Vue's signature structure
+    let has_template_tag = content_lower.contains("<template") && content_lower.contains("</template>");
+    
+    if has_template_tag {
+        // Check for other Vue-specific sections
+        let has_script_tag = content_lower.contains("<script") && content_lower.contains("</script>");
+        let has_style_tag = content_lower.contains("<style") && content_lower.contains("</style>");
+        
+        // If it has template and at least one of script or style, it's very likely Vue
+        if has_script_tag || has_style_tag {
+            return true;
+        }
+    }
+    
+    // Check for Vue-specific patterns
+    let vue_patterns = [
+        "export default {", 
+        "vue.component",
+        "vue.createapp",
+        "vue.use(",
+        "vue.directive(",
+        "vue.filter(",
+        "vue.mixin(",
+        "vue.extend({",
+        "new vue({",
+        "data() {",
+        "props: {",
+        "computed: {",
+        "methods: {",
+        "watch: {",
+        "components: {",
+        "created() {",
+        "mounted() {",
+        "beforedestroy() {",
+        "setup() {",   // Vue 3 Composition API
+        "ref(", 
+        "reactive(", 
+        "computed(", 
+        "onmounted("
+    ];
+    
+    // Count Vue pattern matches
+    let pattern_count = vue_patterns.iter()
+        .filter(|&pattern| content_lower.contains(pattern))
+        .count();
+    
+    // If we find multiple Vue patterns, it's likely Vue
+    pattern_count >= 2
+}
+
+/// Check if file content matches Svelte component patterns
+fn is_likely_svelte(content: &str) -> bool {
+    let content_lower = content.to_lowercase();
+    
+    // Check for Svelte's signature structure: no enclosing <template> tags, but script and style tags
+    let has_script_tag = content_lower.contains("<script") && content_lower.contains("</script>");
+    let has_style_tag = content_lower.contains("<style") && content_lower.contains("</style>");
+    
+    // Svelte-specific directives and patterns
+    let svelte_patterns = [
     let content_lower = content.to_lowercase();
     
     // Common JavaScript keywords and patterns
