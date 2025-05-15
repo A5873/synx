@@ -377,9 +377,14 @@ pub fn detect_file_type(path: &Path) -> Result<FileType> {
         match ext.as_str() {
             "py" => return Ok(FileType::Python),
             "js" => return Ok(FileType::JavaScript),
+            "jsx" => return Ok(FileType::Jsx),
             "ts" => return Ok(FileType::TypeScript),
+            "tsx" => return Ok(FileType::Tsx),
+            "vue" => return Ok(FileType::Vue),
+            "svelte" => return Ok(FileType::Svelte),
             "html" | "htm" => return Ok(FileType::Html),
             "css" => return Ok(FileType::Css),
+            "scss" => return Ok(FileType::Scss),
             "json" => return Ok(FileType::Json),
             "yaml" | "yml" => return Ok(FileType::Yaml),
             "toml" => return Ok(FileType::Toml),
@@ -402,9 +407,14 @@ pub fn detect_file_type(path: &Path) -> Result<FileType> {
         match file_type.to_lowercase().as_str() {
             "python" => return Ok(FileType::Python),
             "javascript" => return Ok(FileType::JavaScript),
+            "jsx" => return Ok(FileType::Jsx),
             "typescript" => return Ok(FileType::TypeScript),
+            "tsx" => return Ok(FileType::Tsx),
+            "vue" => return Ok(FileType::Vue),
+            "svelte" => return Ok(FileType::Svelte),
             "html" => return Ok(FileType::Html),
             "css" => return Ok(FileType::Css),
+            "scss" => return Ok(FileType::Scss),
             "json" => return Ok(FileType::Json),
             "yaml" => return Ok(FileType::Yaml),
             "toml" => return Ok(FileType::Toml),
@@ -436,7 +446,34 @@ pub fn detect_file_type(path: &Path) -> Result<FileType> {
     if let Some(mut file) = file {
         let mut content = String::new();
         if file.read_to_string(&mut content).is_ok() {
-            // Check for JavaScript first since MIME detection often misses it
+            // Check for framework-specific files first since they have distinctive patterns
+            
+            // Check for Vue components first (most distinctive structure)
+            if is_likely_vue(&content) {
+                return Ok(FileType::Vue);
+            }
+            
+            // Check for Svelte components
+            if is_likely_svelte(&content) {
+                return Ok(FileType::Svelte);
+            }
+            
+            // Check for TSX (TypeScript + JSX)
+            if is_likely_tsx(&content) {
+                return Ok(FileType::Tsx);
+            }
+            
+            // Check for JSX
+            if is_likely_jsx(&content) {
+                return Ok(FileType::Jsx);
+            }
+            
+            // Check for TypeScript
+            if is_likely_typescript(&content) {
+                return Ok(FileType::TypeScript);
+            }
+            
+            // Check for JavaScript (after more specific JS derivatives)
             if is_likely_javascript(&content) {
                 return Ok(FileType::JavaScript);
             }
@@ -444,7 +481,6 @@ pub fn detect_file_type(path: &Path) -> Result<FileType> {
             let content_lower = content.to_lowercase();
             
             // Comprehensive HTML detection
-            // 1. Check for full HTML documents
             // 1. Check for full HTML documents
             if content_lower.contains("<!doctype html>") || 
                content_lower.contains("<html") || 
@@ -693,5 +729,145 @@ $(document).ready(function() {
         assert_eq!(detect_file_type(&modern_js_file).unwrap(), FileType::JavaScript, "Failed to detect modern JS");
         assert_eq!(detect_file_type(&traditional_js_file).unwrap(), FileType::JavaScript, "Failed to detect traditional JS");
         assert_eq!(detect_file_type(&jquery_js_file).unwrap(), FileType::JavaScript, "Failed to detect jQuery-style JS");
+        
+        // ---------- Framework-specific file tests ----------
+        
+        // Test 8: JSX React component
+        let jsx_file = create_test_file(dir.path(), "component", r#"
+import React from 'react';
+
+function UserProfile({ name, age, avatar }) {
+  return (
+    <div className="user-profile">
+      <img src={avatar} alt={`${name}'s profile picture`} />
+      <h2>{name}</h2>
+      <p>Age: {age}</p>
+    </div>
+  );
+}
+
+export default UserProfile;
+"#);
+        
+        // Test 9: TSX TypeScript React component
+        let tsx_file = create_test_file(dir.path(), "component_ts", r#"
+import React from 'react';
+
+interface UserProfileProps {
+  name: string;
+  age: number;
+  avatar: string;
+}
+
+const UserProfile: React.FC<UserProfileProps> = ({ name, age, avatar }) => {
+  return (
+    <div className="user-profile">
+      <img src={avatar} alt={`${name}'s profile picture`} />
+      <h2>{name}</h2>
+      <p>Age: {age}</p>
+    </div>
+  );
+};
+
+export default UserProfile;
+"#);
+        
+        // Test 10: Vue component
+        let vue_file = create_test_file(dir.path(), "component_vue", r#"<template>
+  <div class="user-profile">
+    <img :src="avatar" :alt="`${name}'s profile picture`" />
+    <h2>{{ name }}</h2>
+    <p>Age: {{ age }}</p>
+  </div>
+</template>
+
+<script>
+export default {
+  props: {
+    name: {
+      type: String,
+      required: true
+    },
+    age: {
+      type: Number,
+      required: true
+    },
+    avatar: {
+      type: String,
+      default: '/images/default-avatar.png'
+    }
+  }
+}
+</script>
+
+<style scoped>
+.user-profile {
+  border: 1px solid #ccc;
+  padding: 20px;
+  border-radius: 8px;
+}
+</style>
+"#);
+        
+        // Test 11: Svelte component
+        let svelte_file = create_test_file(dir.path(), "component_svelte", r#"<script>
+  export let name;
+  export let age;
+  export let avatar = '/images/default-avatar.png';
+</script>
+
+<div class="user-profile">
+  <img src={avatar} alt="{name}'s profile picture" />
+  <h2>{name}</h2>
+  <p>Age: {age}</p>
+</div>
+
+<style>
+  .user-profile {
+    border: 1px solid #ccc;
+    padding: 20px;
+    border-radius: 8px;
+  }
+</style>
+"#);
+        
+        // Test 12: Pure TypeScript file
+        let ts_file = create_test_file(dir.path(), "typescript", r#"
+interface User {
+  id: number;
+  name: string;
+  email: string;
+  age?: number;
+}
+
+class UserService {
+  private users: User[] = [];
+
+  constructor(initialUsers: User[] = []) {
+    this.users = initialUsers;
+  }
+
+  public addUser(user: User): void {
+    this.users.push(user);
+  }
+
+  public getUserById(id: number): User | undefined {
+    return this.users.find(user => user.id === id);
+  }
+
+  public getAllUsers(): readonly User[] {
+    return Object.freeze([...this.users]);
+  }
+}
+
+export { User, UserService };
+"#);
+        
+        // Framework-specific detection tests
+        assert_eq!(detect_file_type(&jsx_file).unwrap(), FileType::Jsx, "Failed to detect JSX");
+        assert_eq!(detect_file_type(&tsx_file).unwrap(), FileType::Tsx, "Failed to detect TSX");
+        assert_eq!(detect_file_type(&vue_file).unwrap(), FileType::Vue, "Failed to detect Vue");
+        assert_eq!(detect_file_type(&svelte_file).unwrap(), FileType::Svelte, "Failed to detect Svelte");
+        assert_eq!(detect_file_type(&ts_file).unwrap(), FileType::TypeScript, "Failed to detect TypeScript");
     }
 } // end of tests module
