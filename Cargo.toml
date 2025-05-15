@@ -1,12 +1,12 @@
 [package]
 name = "synx"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "A CLI-first universal syntax validator and linter dispatcher"
 authors = ["Alex"]
 license = "MIT"
 readme = "README.md"
-repository = "https://github.com/alex/synx"
+repository = "https://github.com/A5873/synx"
 keywords = ["linter", "validator", "syntax", "cli", "development-tools"]
 categories = ["command-line-utilities", "development-tools"]
 
