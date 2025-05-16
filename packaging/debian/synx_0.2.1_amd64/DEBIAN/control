@@ -1,0 +1,10 @@
+Package: synx
+Version: 0.2.1
+Architecture: amd64
+Maintainer: Alex <alexngugi.dev@gmail.com>
+Description: A CLI-first universal syntax validator and linter dispatcher
+ Synx is a universal syntax validator and linter dispatcher that helps
+ ensure code quality across multiple programming languages and file formats.
+Section: devel
+Priority: optional
+Homepage: https://github.com/A5873/synx
