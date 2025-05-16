@@ -71,3 +71,26 @@ To add support for a new package format:
 
 For detailed contribution guidelines, see the main repository README.
 
+## Package Distribution Strategy
+
+### Binary and Package Files
+Large binary and package files are stored in specific locations:
+
+- Debian packages and source tarballs: `deb/pool/main/s/synx/`
+- RPM packages: `rpm/RPMS/`
+- Homebrew bottles: Managed by Homebrew tap
+- AUR: Built locally by users
+
+These files are included in the git repository for version tracking but should be distributed through their respective package repositories:
+
+- Debian/Ubuntu: Through the APT repository
+- RPM: Through the YUM/DNF repository
+- Homebrew: Through the Homebrew bottle system
+- AUR: Built from source by package manager
+
+### File Locations
+- Source tarballs (*.tar.gz): Required for package builds
+- Binary packages (*.deb, *.rpm): Generated during package builds
+- Build artifacts: Generated during package creation, stored in respective build directories
+
+Note: While these files are tracked in git for version control, future versions may move to a separate release management system as the project grows.
