@@ -1,4 +1,5 @@
 <div align="center">
+<link rel="icon" type="image/svg+xml" href="/synx/assets/images/synx-avatar.svg" />
 
 <img src="/synx/assets/images/synx-logo.svg" alt="Synx Logo" width="256" height="256">
 
