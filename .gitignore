@@ -1,0 +1,36 @@
+# Rust
+target/
+**/*.rs.bk
+Cargo.lock
+
+# Package builds
+*.tar.gz
+*.tar.xz
+*.deb
+*.rpm
+*.pkg.tar.zst
+
+# Editor/IDE
+.idea/
+.vscode/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build outputs
+dist/
+build/
+
+# Package manager specific
+node_modules/
+__pycache__/
+*.pyc
+
+# Temporary files
+*.log
+*.tmp
+.env
+
