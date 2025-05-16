@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="src/assets/synx-logo.svg" alt="Synx Logo" width="256" height="256">
+<img src="https://raw.githubusercontent.com/A5873/synx/gh-pages/assets/images/synx-logo.svg" alt="Synx Logo" width="256" height="256">
 
 # ✨ Synx ✨
 
@@ -24,4 +24,4 @@
   <img src="https://img.shields.io/badge/docker-%232496ED.svg?style=flat-square&logo=docker&logoColor=white" alt="Docker" />
 </p>
 
-[Rest of README content remains the same...]
+[Rest of the existing content...]

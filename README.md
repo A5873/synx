@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/images/synx-logo.svg" alt="Synx Logo" width="256" height="256">
+<img src="https://raw.githubusercontent.com/A5873/synx/gh-pages/assets/images/synx-logo.svg" alt="Synx Logo" width="256" height="256">
 
 [![CI](https://img.shields.io/github/actions/workflow/status/A5873/synx/ci.yml?branch=main&style=for-the-badge&logo=github&label=CI)](https://github.com/A5873/synx/actions/workflows/ci.yml)
 [![Latest Release](https://img.shields.io/github/v/release/A5873/synx?style=for-the-badge&logo=github&label=Release)](https://github.com/A5873/synx/releases/latest)
