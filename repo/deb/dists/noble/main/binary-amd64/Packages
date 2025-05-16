@@ -3,10 +3,10 @@ Version: 0.2.1
 Architecture: amd64
 Maintainer: Alex <alexngugi.dev@gmail.com>
 Filename: pool/main/s/synx/synx_0.2.1_amd64.deb
-Size: 834910
-MD5sum: 9377170a4ebe4ae0b3b3a6550939dd94
-SHA1: 3345e7535b02aca5b118d85bc2325a92e5e0fb0e
-SHA256: ef96e70af955566b1e8919db128a22e5b767bd7f8e1f30469e59d12da706dc31
+Size: 835566
+MD5sum: 7ed766f66e36a087bd27b95c531a5e20
+SHA1: 8e2a06db917865947f140d8eba35a0d4093cbba1
+SHA256: afe4c44dfe7fc9ba21afa0f2bdc3d78238584eafd2481215be06a8057f41aa30
 Section: devel
 Priority: optional
 Homepage: https://github.com/A5873/synx
