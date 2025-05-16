@@ -1,0 +1,10 @@
+theme: minima
+title: Synx Package Repository
+description: Official package repository for Synx - A CLI-first universal syntax validator
+show_downloads: true
+google_analytics:
+minima:
+  skin: classic
+github:
+  is_project_page: true
+  repository_url: https://github.com/A5873/synx

@@ -11,7 +11,7 @@ This is the official package repository for Synx, a CLI-first universal syntax v
 
 ```bash
 # Add the repository
-echo "deb [trusted=yes] https://a5873.github.io/synx/repo/deb/ noble main" | sudo tee /etc/apt/sources.list.d/synx.list
+echo "deb [trusted=yes] https://a5873.github.io/synx/repo/deb/dists/noble/ main" | sudo tee /etc/apt/sources.list.d/synx.list
 
 # Update and install
 sudo apt update
@@ -21,8 +21,14 @@ sudo apt install synx
 ### Fedora/RHEL
 
 ```bash
-# Add the repository
-sudo dnf config-manager --add-repo https://a5873.github.io/synx/repo/rpm/synx.repo
+# Add the repository configuration
+sudo tee /etc/yum.repos.d/synx.repo << REPO
+[synx]
+name=Synx Package Repository
+baseurl=https://a5873.github.io/synx/repo/rpm
+enabled=1
+gpgcheck=0
+REPO
 
 # Install synx
 sudo dnf install synx
@@ -42,11 +48,11 @@ paru -S synx
 
 ### Debian (.deb)
 - synx_0.2.1_amd64.deb - Latest stable release
-- [View all Debian packages](repo/deb/pool/main/s/synx/)
+- [View all Debian packages](/repo/deb/pool/main/s/synx/)
 
 ### RPM
 - synx-0.2.1-1.fc38.x86_64.rpm - Latest stable release
-- [View all RPM packages](repo/rpm/)
+- [View all RPM packages](/repo/rpm/)
 
 ## Repository Structure
 
@@ -54,7 +60,12 @@ paru -S synx
 repo/
 ├── deb/                    # Debian repository
 │   ├── pool/              # Package pool
-│   └── dists/             # Distribution indices
+│   │   └── main/
+│   │       └── s/
+│   │           └── synx/  # Debian packages
+│   └── dists/            # Distribution indices
+│       └── noble/
+│           └── main/     # Main component
 ├── rpm/                    # RPM repository
 └── index.md               # Repository index
 ```
