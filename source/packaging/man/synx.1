@@ -1,0 +1,113 @@
+.TH SYNX 1 "May 2025" "synx 0.2.1" "User Commands"
+.SH NAME
+synx \- universal syntax validator and linter dispatcher
+.SH SYNOPSIS
+.B synx
+[\fIOPTIONS\fR] [\fIFILES\fR...]
+.SH DESCRIPTION
+.B synx
+is a command-line tool that inspects files and validates their syntax by automatically detecting the filetype and dispatching to appropriate validators or linters.
+.SH OPTIONS
+.TP
+.BR \-w ", " \-\-watch
+Watch files for changes and revalidate automatically.
+.TP
+.BR \-v ", " \-\-verbose
+Show verbose output including detailed validation results.
+.TP
+.BR \-c ", " \-\-config =\fIFILE\fR
+Use specific config file (default: ~/.config/synx/config.toml).
+.TP
+.BR \-\-interval =\fISECONDS\fR
+Set watch interval in seconds (default: 2).
+.TP
+.BR \-\-init\-config
+Initialize default configuration file.
+.TP
+.BR \-s ", " \-\-strict
+Strict mode - treat warnings as errors.
+.TP
+.BR \-h ", " \-\-help
+Display help message and exit.
+.TP
+.BR \-V ", " \-\-version
+Display version information and exit.
+.SH FILES
+.TP
+.I ~/.config/synx/config.toml
+Default configuration file location.
+.SH SUPPORTED FILE TYPES
+.TP
+.B Python (.py)
+Uses python interpreter for syntax validation
+.TP
+.B JavaScript (.js)
+Uses Node.js for syntax checking
+.TP
+.B TypeScript (.ts)
+Uses tsc for type checking
+.TP
+.B HTML (.html, .htm)
+Uses html-tidy for validation
+.TP
+.B CSS (.css)
+Uses csslint for style validation
+.TP
+.B JSON (.json)
+Uses jq for syntax validation
+.TP
+.B YAML (.yaml, .yml)
+Uses yamllint for syntax and style checking
+.TP
+.B Dockerfile
+Uses hadolint for best practices validation
+.TP
+.B Shell (.sh, .bash)
+Uses shellcheck for script validation
+.SH CONFIGURATION
+The configuration file uses TOML format and supports:
+.TP
+.B General Settings
+verbosity, strict mode, timeout
+.TP
+.B Validator Settings
+command paths, arguments, timeouts
+.TP
+.B File Mappings
+custom filename to validator mappings
+.SH EXAMPLES
+.TP
+Validate a single file:
+.B synx script.py
+.TP
+Watch mode with multiple files:
+.B synx -w config.yaml script.py
+.TP
+Strict validation with verbose output:
+.B synx -sv config.json
+.TP
+Use custom config:
+.B synx -c ~/myconfig.toml script.js
+.TP
+Initialize config:
+.B synx --init-config
+.SH EXIT STATUS
+.TP
+.B 0
+All validations passed successfully
+.TP
+.B 1
+Validation errors found
+.TP
+.B 2
+Command line usage error
+.SH BUGS
+Report bugs at: https://github.com/A5873/synx/issues
+.SH AUTHOR
+Alex <alexngugi.dev@gmail.com>
+.SH COPYRIGHT
+Copyright © 2025 Alex. License MIT: https://opensource.org/licenses/MIT
+.SH SEE ALSO
+.BR shellcheck (1),
+.BR yamllint (1),
+.BR jq (1)
