@@ -1,0 +1,27 @@
+Format: 1.8
+Date: Fri, 16 May 2025 13:07:00 +0300
+Source: synx
+Built-For-Profiles: noudeb
+Architecture: source
+Version: 0.2.1
+Distribution: noble
+Urgency: medium
+Maintainer: Alex <alexngugi.dev@gmail.com>
+Changed-By: Alex <ngugialex540@gmail.com>
+Changes:
+ synx (0.2.1) noble; urgency=medium
+ .
+   * Fix release workflow with proper multi-platform support
+   * Improve validator output formatting and add Debian package support
+Checksums-Sha1:
+ fddcefc05cabc96ee182b8b7783d1df8b02800db 633 synx_0.2.1.dsc
+ 4c81d5bd3f7f7432b37c56fdd7e48dc5425425b1 82928 synx_0.2.1.tar.xz
+ c18b86e31e50f30ed3399d171577c63d31ded8bb 7318 synx_0.2.1_source.buildinfo
+Checksums-Sha256:
+ 96ff8b9725eed71aa71bf377002d2fafd5fa118e196a1ae917df1eb2b484c533 633 synx_0.2.1.dsc
+ b86248bc358f22c864afb6e63df00b41c7343a247fc3e8a3ec3f28cd23a7e63c 82928 synx_0.2.1.tar.xz
+ 1a994f1b94ec16bf30564659ef3f9c1744cd77bf907be5ceb8a47e164d24bdde 7318 synx_0.2.1_source.buildinfo
+Files:
+ 08a32588ca68f0c882faf774961eefaf 633 devel optional synx_0.2.1.dsc
+ 8fddf7a68506b22a0d48c68b015729d7 82928 devel optional synx_0.2.1.tar.xz
+ 1f6109b545011a8b21358a3f96d8935e 7318 devel optional synx_0.2.1_source.buildinfo
