@@ -1,5 +1,5 @@
 Name:           synx
-Version:        0.2.0
+Version:        0.2.1
 Release:        1%{?dist}
 Summary:        A CLI-first universal syntax validator and linter dispatcher
 
@@ -34,6 +34,10 @@ install -D -m 755 target/release/%{name} %{buildroot}%{_bindir}/%{name}
 %{_bindir}/%{name}
 
 %changelog
+* Fri May 16 2025 Alex Ngugi <ngugialex540@gmail.com> - 0.2.1-1
+- Fix release workflow with proper multi-platform support
+- Improve validator output formatting
+
 * Thu May 15 2025 Alex Ngugi <ngugialex540@gmail.com> - 0.2.0-1
 - Initial RPM release
 - Add comprehensive memory analysis capabilities

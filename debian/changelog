@@ -1,3 +1,10 @@
+synx (0.2.1) unstable; urgency=medium
+
+  * Fix release workflow with proper multi-platform support
+  * Improve validator output formatting and add Debian package support
+
+ -- Alex <your.email@example.com>  Fri, 16 May 2025 13:07:00 +0300
+
 synx (0.2.0) unstable; urgency=medium
 
   * Initial release with Debian packaging
