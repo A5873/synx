@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    .bracket { fill: #1A3A5F; }
+    .checkmark { fill: #00BF6F; }
+    @media (prefers-color-scheme: dark) {
+      .bracket { fill: #00B2A9; }
+    }
+  </style>
+  
+  <!-- Base brackets forming 'S' shape -->
+  <g transform="translate(256,256) scale(1.5)">
+    <!-- Left bracket -->
+    <path class="bracket" d="M-80,-80 C-120,-80 -120,80 -80,80 L-60,80 L-60,60 C-90,60 -90,-60 -60,-60 L-80,-80" />
+    
+    <!-- Right bracket -->
+    <path class="bracket" d="M80,80 C120,80 120,-80 80,-80 L60,-80 L60,-60 C90,-60 90,60 60,60 L80,80" />
+    
+    <!-- Checkmark -->
+    <path class="checkmark" d="M-20,20 L0,40 L40,-40" stroke="#00BF6F" stroke-width="12" fill="none" />
+  </g>
+  
+  <!-- Wordmark -->
+  <text x="256" y="400" font-family="Inter, Roboto, sans-serif" font-size="48" font-weight="600" text-anchor="middle" fill="#1A3A5F">
+    SYNX
+  </text>
+</svg>
