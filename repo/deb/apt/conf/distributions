@@ -1,9 +1,0 @@
-# Synx repository configuration
-Origin: Synx
-Label: Synx Repository
-Suite: noble
-Codename: noble
-Architectures: amd64 source
-Components: main
-Description: Synx package repository
-SignWith: 2DCC2971293C3664

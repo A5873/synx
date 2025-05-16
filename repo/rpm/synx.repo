@@ -1,6 +1,0 @@
-[synx]
-name=Synx Package Repository
-baseurl=https://raw.githubusercontent.com/A5873/synx/master/repo/rpm
-enabled=1
-gpgcheck=1
-gpgkey=https://raw.githubusercontent.com/A5873/synx/master/repo/synx-key.asc
