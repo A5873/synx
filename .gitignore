@@ -33,3 +33,16 @@ __pycache__/
 
 /target
 PACKAGING.md
+
+# Build artifacts
+dist/
+debian/.debhelper/
+debian/synx/
+debian/tmp/
+test_files/
+
+# Secure distribution
+secure-dist/
+*.deb
+*.tar.gz
+*.asc
