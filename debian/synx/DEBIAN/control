@@ -1,0 +1,14 @@
+Package: synx
+Version: 0.2.0
+Architecture: amd64
+Maintainer: Alex <alexngugi.dev@gmail.com>
+Installed-Size: 2124
+Depends: libc6 (>= 2.39), libgcc-s1 (>= 4.2)
+Section: devel
+Priority: optional
+Homepage: https://github.com/A5873/synx
+Description: A CLI-first universal syntax validator and linter dispatcher
+ The synx tool provides a universal interface for validating and linting
+ various file types. It automatically detects file types and dispatches
+ to the appropriate validator or linter, providing a unified command-line
+ interface for all syntax validation needs.

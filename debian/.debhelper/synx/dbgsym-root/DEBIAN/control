@@ -1,0 +1,13 @@
+Package: synx-dbgsym
+Package-Type: ddeb
+Source: synx
+Version: 0.2.0
+Auto-Built-Package: debug-symbols
+Architecture: amd64
+Maintainer: Alex <alexngugi.dev@gmail.com>
+Installed-Size: 497
+Depends: synx (= 0.2.0)
+Section: debug
+Priority: optional
+Description: debug symbols for synx
+Build-Ids: 47230282cfc53e2692844d4b27cf57eeedbcb53c
