@@ -1,13 +1,10 @@
-theme: minima
+remote_theme: pages-themes/slate@v0.2.0
 title: Synx Package Repository
 description: Official package repository for Synx - A CLI-first universal syntax validator
 show_downloads: true
-google_analytics:
-minima:
-  skin: dark
+plugins:
+  - jekyll-remote-theme
+baseurl: "/synx"
 github:
   is_project_page: true
   repository_url: https://github.com/A5873/synx
-
-# Make sure all links work
-baseurl: "/synx"

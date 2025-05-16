@@ -1,0 +1,52 @@
+---
+---
+
+@import "{{ site.theme }}";
+
+body {
+  background-color: #1a1a1a;
+  color: #e6e6e6;
+}
+
+a {
+  color: #58a6ff;
+  &:visited {
+    color: #a371f7;
+  }
+  &:hover {
+    color: #79c0ff;
+  }
+}
+
+.site-header {
+  border-bottom: 1px solid #363636;
+  background-color: #242424;
+}
+
+.site-footer {
+  border-top: 1px solid #363636;
+  background-color: #242424;
+}
+
+pre, code {
+  background-color: #2d2d2d;
+  border: 1px solid #404040;
+}
+
+table {
+  th, td {
+    border: 1px solid #404040;
+  }
+  tr:nth-child(even) {
+    background-color: #2d2d2d;
+  }
+}
+
+blockquote {
+  color: #a6a6a6;
+  border-left: 4px solid #404040;
+}
+
+.highlight {
+  background: #2d2d2d;
+}
