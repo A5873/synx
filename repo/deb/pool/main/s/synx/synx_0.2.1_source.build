@@ -1,0 +1,20 @@
+ dpkg-buildpackage -us -uc -ui -S
+dpkg-buildpackage: info: source package synx
+dpkg-buildpackage: info: source version 0.2.1
+dpkg-buildpackage: info: source distribution noble
+dpkg-buildpackage: info: source changed by Alex <ngugialex540@gmail.com>
+ dpkg-source --before-build .
+ fakeroot debian/rules clean
+dh clean
+   dh_clean
+ dpkg-source -b .
+dpkg-source: info: using source format '3.0 (native)'
+dpkg-source: info: building synx in synx_0.2.1.tar.xz
+dpkg-source: info: building synx in synx_0.2.1.dsc
+ dpkg-genbuildinfo --build=source -O../synx_0.2.1_source.buildinfo
+ dpkg-genchanges --build=source -O../synx_0.2.1_source.changes
+dpkg-genchanges: info: including full source code in upload
+ dpkg-source --after-build .
+dpkg-buildpackage: info: source-only upload: Debian-native package
+Now running lintian synx_0.2.1_source.changes ...
+Finished running lintian.

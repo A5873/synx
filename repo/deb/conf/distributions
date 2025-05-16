@@ -1,0 +1,8 @@
+Origin: Synx Package Repository
+Label: Synx
+Suite: noble
+Codename: noble
+Version: 1.0
+Architectures: amd64 source
+Components: main
+Description: Synx package repository
