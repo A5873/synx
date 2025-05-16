@@ -8,6 +8,16 @@ body {
   color: #e6e6e6;
 }
 
+.main-content {
+  h1, h2, h3, h4, h5, h6 {
+    color: #ffffff;
+  }
+  
+  p {
+    color: #e6e6e6;
+  }
+}
+
 a {
   color: #58a6ff;
   &:visited {
@@ -31,9 +41,11 @@ a {
 pre, code {
   background-color: #2d2d2d;
   border: 1px solid #404040;
+  color: #e6e6e6;
 }
 
 table {
+  color: #e6e6e6;
   th, td {
     border: 1px solid #404040;
   }
@@ -49,4 +61,13 @@ blockquote {
 
 .highlight {
   background: #2d2d2d;
+}
+
+// Logo placeholder
+.logo {
+  font-family: monospace;
+  white-space: pre;
+  color: #58a6ff;
+  text-align: center;
+  margin: 2em 0;
 }

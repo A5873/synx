@@ -1,9 +1,23 @@
-# Synx Package Repository
+<div align="center">
+<pre class="logo">
+                                                 
+   ███████╗██╗   ██╗███╗   ██╗██╗  ██╗         
+   ██╔════╝╚██╗ ██╔╝████╗  ██║╚██╗██╔╝         
+   ███████╗ ╚████╔╝ ██╔██╗ ██║ ╚███╔╝          
+   ╚════██║  ╚██╔╝  ██║╚██╗██║ ██╔██╗          
+   ███████║   ██║   ██║ ╚████║██╔╝ ██╗         
+   ╚══════╝   ╚═╝   ╚═╝  ╚═══╝╚═╝  ╚═╝         
+                                                 
+   [ Universal Syntax Validator ]                
+   ===============================               
+      "Validate with confidence"                 
+</pre>
 
 [![Latest Release](https://img.shields.io/github/v/release/A5873/synx?style=for-the-badge&logo=github&label=Release)](https://github.com/A5873/synx/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 
-This is the official package repository for Synx, a CLI-first universal syntax validator and linter dispatcher. For the main project documentation, please visit the [main repository](https://github.com/A5873/synx).
+Welcome to the official Synx package repository. Choose your distribution below for installation instructions.
+</div>
 
 ## Quick Installation
 
@@ -54,38 +68,10 @@ paru -S synx
 - synx-0.2.1-1.fc38.x86_64.rpm - Latest stable release
 - [Browse RPM repository](https://a5873.github.io/synx/repo/rpm/)
 
-## Repository Structure
-
-```
-repo/
-├── deb/                    # Debian repository
-│   ├── pool/              # Package pool
-│   │   └── main/
-│   │       └── s/
-│   │           └── synx/  # Debian packages
-│   └── dists/            # Distribution indices
-│       └── noble/
-│           └── main/     # Main component
-├── rpm/                    # RPM repository
-└── index.md               # Repository index
-```
-
 ## Direct Download Links
 
 - [Download synx_0.2.1_amd64.deb](https://a5873.github.io/synx/repo/deb/pool/main/s/synx/synx_0.2.1_amd64.deb)
 - [Download source package (synx_0.2.1.tar.xz)](https://a5873.github.io/synx/repo/deb/pool/main/s/synx/synx_0.2.1.tar.xz)
-
-## Verifying Package Signatures
-
-All packages are signed with our release key. To verify package signatures:
-
-```bash
-# Import our public key
-curl -fsSL https://a5873.github.io/synx/repo/synx-key.asc | sudo gpg --dearmor -o /usr/share/keyrings/synx-archive-keyring.gpg
-
-# Verify a package
-gpg --verify synx_0.2.1_amd64.deb.asc synx_0.2.1_amd64.deb
-```
 
 ## Support
 
