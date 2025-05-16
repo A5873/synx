@@ -1,5 +1,7 @@
-mod banner;
 use clap::Parser;
+use std::process;
+
+mod banner;
 
 /// CLI arguments
 #[derive(Parser)]
@@ -40,6 +42,33 @@ fn main() {
     // Parse command line arguments
     let args = Args::parse();
 
-    // Your existing main logic here...
-    println!("Validating files: {:?}", args.files);
+    if args.verbose {
+        println!("Validating files: {:?}", args.files);
+    }
+
+    let config = synx::Config {
+        strict: args.strict,
+        verbose: args.verbose,
+        watch: args.watch,
+        watch_interval: args.interval,
+    };
+
+    match synx::run(&args.files, &config) {
+        Ok(true) => {
+            if args.verbose {
+                println!("\n✅ All validations passed successfully!");
+            }
+            process::exit(0);
+        }
+        Ok(false) => {
+            if args.verbose {
+                println!("\n❌ Some validations failed!");
+            }
+            process::exit(1);
+        }
+        Err(e) => {
+            eprintln!("\n❌ Error: {}", e);
+            process::exit(2);
+        }
+    }
 }
