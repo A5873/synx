@@ -25,6 +25,7 @@ impl Validator for CValidator {
         let mut use_tsan = false;
         let mut use_ubsan = false;
         let mut use_msan = false;
+        let mut use_lsan = false;
         let mut use_static_analyzer = false;
         let mut use_cppcheck = false;
         let mut use_iwyu = false;
@@ -47,54 +48,24 @@ impl Validator for CValidator {
                 return run_command(&mut cmd, self.name(), file_path, verbose);
             }
             
-            // Extract configuration options
-            if let Some(settings) = validator_config.settings.as_ref() {
-                if let Some(level) = settings.get("analysis_level") {
-                    analysis_level = level;
-                }
-                if let Some(valgrind) = settings.get("use_valgrind") {
-                    if valgrind == "true" || valgrind == "1" {
-                        use_valgrind = true;
-                    }
-                }
-                if let Some(asan) = settings.get("use_asan") {
-                    if asan == "true" || asan == "1" {
-                        use_asan = true;
-                    }
-                }
-                if let Some(tsan) = settings.get("use_tsan") {
-                    if tsan == "true" || tsan == "1" {
-                        use_tsan = true;
-                    }
-                }
-                if let Some(ubsan) = settings.get("use_ubsan") {
-                    if ubsan == "true" || ubsan == "1" {
-                        use_ubsan = true;
-                    }
-                }
-                if let Some(msan) = settings.get("use_msan") {
-                    if msan == "true" || msan == "1" {
-                        use_msan = true;
-                    }
-                }
-                if let Some(static_analyzer) = settings.get("use_static_analyzer") {
-                    if static_analyzer == "true" || static_analyzer == "1" {
-                        use_static_analyzer = true;
-                    }
-                }
-                if let Some(cppcheck) = settings.get("use_cppcheck") {
-                    if cppcheck == "true" || cppcheck == "1" {
-                        use_cppcheck = true;
-                    }
-                }
-                if let Some(iwyu) = settings.get("use_iwyu") {
-                    if iwyu == "true" || iwyu == "1" {
-                        use_iwyu = true;
-                    }
-                }
-                if let Some(clang_tidy) = settings.get("use_clang_tidy") {
-                    if clang_tidy == "true" || clang_tidy == "1" {
-                        use_clang_tidy = true;
+            // Extract configuration options from args
+            if let Some(args) = &validator_config.args {
+                for arg in args {
+                    match arg.as_str() {
+                        "analysis=basic" => analysis_level = "basic",
+                        "analysis=advanced" => analysis_level = "advanced",
+                        "analysis=comprehensive" => analysis_level = "comprehensive",
+                        "use_valgrind=true" => use_valgrind = true,
+                        "use_asan=true" => use_asan = true,
+                        "use_tsan=true" => use_tsan = true,
+                        "use_ubsan=true" => use_ubsan = true,
+                        "use_msan=true" => use_msan = true,
+                        "use_lsan=true" => use_lsan = true,
+                        "use_static_analyzer=true" => use_static_analyzer = true,
+                        "use_cppcheck=true" => use_cppcheck = true,
+                        "use_iwyu=true" => use_iwyu = true,
+                        "use_clang_tidy=true" => use_clang_tidy = true,
+                        _ => {}
                     }
                 }
             }
@@ -372,7 +343,35 @@ clean:
                         let combined = format!("{}\n{}", stdout, stderr);
                         error_messages.push(format!("Undefined behavior detected (UBSan):\n{}", combined));
                     } else if verbose {
-                        println!("UndefinedBehaviorS
+                         println!("UndefinedBehaviorSanitizer passed.");
+                    }
+                },
+                Err(e) => {
+                    if verbose {
+                        println!("Warning: Failed to run UBSan: {}", e);
+                        println!("This may require a newer compiler version.");
+                    }
+                }
+            }
+        }
+        
+        // Return results
+        if has_errors {
+            print_colored(&format!("{} found issues in {:?}:", self.name(), file_path), false, false)?;
+            for msg in error_messages {
+                println!("{}", msg);
+            }
+            Err(anyhow!("C validation failed"))
+        } else {
+            print_colored(&format!("{}: No issues found in {:?}", self.name(), file_path), true, verbose)?;
+            Ok(())
+        }
+    }
+    
+    fn name(&self) -> &str {
+        "C Validator"
+    }
+}
 pub fn get_validator(file_type: &FileType) -> Result<Box<dyn Validator>> {
     match file_type {
         FileType::Python => Ok(Box::new(PythonValidator)),
@@ -404,12 +403,12 @@ fn print_colored(message: &str, success: bool, verbose: bool) -> Result<()> {
     if success {
         if verbose {
             stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Green)))?;
-            writeln!(&mut stdout, "✓ {}", message)?;
+            writeln!(&mut stdout, "+ {}", message)?;
             stdout.reset()?;
         }
     } else {
         stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Red)))?;
-        writeln!(&mut stdout, "✗ {}", message)?;
+        writeln!(&mut stdout, "x {}", message)?;
         stdout.reset()?;
     }
     
@@ -449,12 +448,12 @@ fn run_command(cmd: &mut Command, validator_name: &str, file_path: &Path, verbos
                     println!("{}", stdout);
                 }
                 
-                Err(anyhow!("{} validation failed", validator_name))
+                Err(anyhow!("{} validation failed ", validator_name))
             }
         },
         Err(e) => {
             if e.kind() == std::io::ErrorKind::NotFound {
-                print_colored(&format!("{} is not installed", validator_name), false, false)?;
+                print_colored(&format!("{} is not installed ", validator_name), false, false)?;
                 println!("Please install the required tool to validate this file type.");
                 Err(anyhow!("Validator tool not found: {}", cmd.get_program().to_string_lossy()))
             } else {
@@ -480,7 +479,7 @@ impl Validator for PythonValidator {
         if let Some(validator_config) = config.validators.get("python") {
             if !validator_config.enabled {
                 if verbose {
-                    println!("Python validator is disabled in config");
+                    println!("Python validator is disabled in config ");
                 }
                 return Ok(());
             }
@@ -496,29 +495,18 @@ impl Validator for PythonValidator {
                 return run_command(&mut cmd, self.name(), file_path, verbose);
             }
             
-            // Extract configuration options
-            if let Some(settings) = validator_config.settings.as_ref() {
-                if let Some(level) = settings.get("analysis_level") {
-                    analysis_level = level;
-                }
-                if let Some(mypy) = settings.get("use_mypy") {
-                    if mypy == "true" || mypy == "1" {
-                        use_mypy = true;
-                    }
-                }
-                if let Some(pylint) = settings.get("use_pylint") {
-                    if pylint == "true" || pylint == "1" {
-                        use_pylint = true;
-                    }
-                }
-                if let Some(memory) = settings.get("use_memory_profiler") {
-                    if memory == "true" || memory == "1" {
-                        use_memory_profiler = true;
-                    }
-                }
-                if let Some(bandit) = settings.get("use_bandit") {
-                    if bandit == "true" || bandit == "1" {
-                        use_bandit = true;
+            // Extract configuration options from args
+            if let Some(args) = &validator_config.args {
+                for arg in args {
+                    match arg.as_str() {
+                        "analysis=basic" => analysis_level = "basic",
+                        "analysis=advanced" => analysis_level = "advanced",
+                        "analysis=comprehensive" => analysis_level = "comprehensive",
+                        "use_mypy=true" => use_mypy = true,
+                        "use_pylint=true" => use_pylint = true,
+                        "use_memory_profiler=true" => use_memory_profiler = true,
+                        "use_bandit=true" => use_bandit = true,
+                        _ => {}
                     }
                 }
             }
@@ -526,9 +514,9 @@ impl Validator for PythonValidator {
         
         // Check if Python is available
         if !is_command_available("python") {
-            print_colored("Python is not installed", false, false)?;
+            print_colored("Python is not installed ", false, false)?;
             println!("Please install Python to validate Python files.");
-            return Err(anyhow!("Python is not installed"));
+            return Err(anyhow!("Python is not installed "));
         }
         
         // Initialize results collection
@@ -541,21 +529,21 @@ impl Validator for PythonValidator {
         }
         
         let mut cmd = Command::new("python");
-        cmd.args(["-m", "py_compile", file_path.to_str().unwrap()]);
+        cmd.args(["-m ", "py_compile", file_path.to_str().unwrap()]);
         
         match cmd.output() {
             Ok(output) => {
                 if !output.status.success() {
                     has_errors = true;
                     let stderr = String::from_utf8_lossy(&output.stderr);
-                    error_messages.push(format!("Basic syntax check failed:\n{}", stderr));
+                    error_messages.push(format!("Basic syntax check failed: {}", stderr));
                     
                     // If basic check fails, no need to proceed with advanced checks
                     print_colored(&format!("{} found issues in {:?}:", self.name(), file_path), false, false)?;
                     for msg in error_messages {
                         println!("{}", msg);
                     }
-                    return Err(anyhow!("Python validation failed"));
+                    return Err(anyhow!("Python validation failed "));
                 } else if verbose {
                     println!("Basic syntax check passed.");
                 }
@@ -572,7 +560,7 @@ impl Validator for PythonValidator {
                 for msg in error_messages {
                     println!("{}", msg);
                 }
-                return Err(anyhow!("Python validation failed"));
+                return Err(anyhow!("Python validation failed "));
             } else {
                 print_colored(&format!("{}: No issues found in {:?}", self.name(), file_path), true, verbose)?;
                 return Ok(());
@@ -584,7 +572,7 @@ impl Validator for PythonValidator {
             if !is_command_available("mypy") {
                 if verbose {
                     println!("mypy is not installed. Skipping type checking.");
-                    println!("To install: pip install mypy");
+                    println!("To install: pip install mypy ");
                 }
             } else {
                 if verbose {
@@ -592,7 +580,7 @@ impl Validator for PythonValidator {
                 }
                 
                 let mut mypy_cmd = Command::new("mypy");
-                mypy_cmd.args(["--strict", file_path.to_str().unwrap()]);
+                mypy_cmd.args(["--strict ", file_path.to_str().unwrap()]);
                 
                 match mypy_cmd.output() {
                     Ok(output) => {
@@ -601,7 +589,7 @@ impl Validator for PythonValidator {
                             let stderr = String::from_utf8_lossy(&output.stderr);
                             let stdout = String::from_utf8_lossy(&output.stdout);
                             let error_output = if !stderr.is_empty() { stderr } else { stdout };
-                            error_messages.push(format!("Type checking issues (mypy):\n{}", error_output));
+                            error_messages.push(format!("Type checking issues (mypy): {}", error_output));
                         } else if verbose {
                             println!("Type checking passed.");
                         }
@@ -618,7 +606,7 @@ impl Validator for PythonValidator {
             if !is_command_available("pylint") {
                 if verbose {
                     println!("pylint is not installed. Skipping static analysis.");
-                    println!("To install: pip install pylint");
+                    println!("To install: pip install pylint ");
                 }
             } else {
                 if verbose {
@@ -627,9 +615,9 @@ impl Validator for PythonValidator {
                 
                 let mut pylint_cmd = Command::new("pylint");
                 pylint_cmd.args([
-                    "--output-format=text", 
-                    "--score=n", 
-                    "--reports=n",
+                    "--output-format=text ", 
+                    "--score=n ", 
+                    "--reports=n ",
                     file_path.to_str().unwrap()
                 ]);
                 
@@ -640,7 +628,7 @@ impl Validator for PythonValidator {
                             let stderr = String::from_utf8_lossy(&output.stderr);
                             let stdout = String::from_utf8_lossy(&output.stdout);
                             let error_output = if !stderr.is_empty() { stderr } else { stdout };
-                            error_messages.push(format!("Static analysis issues (pylint):\n{}", error_output));
+                            error_messages.push(format!("Static analysis issues (pylint): {}", error_output));
                         } else if verbose {
                             println!("Static analysis passed.");
                         }
@@ -657,7 +645,7 @@ impl Validator for PythonValidator {
             if !is_command_available("bandit") {
                 if verbose {
                     println!("bandit is not installed. Skipping security analysis.");
-                    println!("To install: pip install bandit");
+                    println!("To install: pip install bandit ");
                 }
             } else {
                 if verbose {
@@ -665,7 +653,7 @@ impl Validator for PythonValidator {
                 }
                 
                 let mut bandit_cmd = Command::new("bandit");
-                bandit_cmd.args(["-f", "txt", file_path.to_str().unwrap()]);
+                bandit_cmd.args(["-f ", "txt", file_path.to_str().unwrap()]);
                 
                 match bandit_cmd.output() {
                     Ok(output) => {
@@ -674,7 +662,7 @@ impl Validator for PythonValidator {
                             let stderr = String::from_utf8_lossy(&output.stderr);
                             let stdout = String::from_utf8_lossy(&output.stdout);
                             let error_output = if !stderr.is_empty() { stderr } else { stdout };
-                            error_messages.push(format!("Security issues (bandit):\n{}", error_output));
+                            error_messages.push(format!("Security issues (bandit): {}", error_output));
                         } else if verbose {
                             println!("Security analysis passed.");
                         }
@@ -691,7 +679,7 @@ impl Validator for PythonValidator {
             if !is_command_available("python") {
                 if verbose {
                     println!("memory_profiler functionality requires Python.");
-                    println!("To install memory_profiler: pip install memory_profiler");
+                    println!("To install memory_profiler: pip install memory_profiler ");
                 }
             } else {
                 if verbose {
@@ -700,9 +688,9 @@ impl Validator for PythonValidator {
                 
                 // Create a temporary script to run memory_profiler
                 let temp_dir = tempfile::tempdir()
-                    .context("Failed to create temporary directory for memory profiling")?;
+                    .context("Failed to create temporary directory for memory profiling ")?;
                 
-                let memory_script_path = temp_dir.path().join("memory_profile.py");
+                let memory_script_path = temp_dir.path().join("memory_profile.py ");
                 let memory_script_content = format!(r#"
 import sys
 try:
@@ -713,16 +701,16 @@ except ImportError:
 
 try:
     script_path = "{}"
-    module_name = script_path.replace('/', '.').replace('.py', '')
+    module_name = script_path.replace('/', '.').replace(".py", "")
     
     # Check if the file is importable
     try:
-        # First try to do a basic syntax check
-        with open(script_path, 'r') as f:
-            compile(f.read(), script_path, 'exec')
-            
-        # Then try to import if it seems to be a module
-        if '__main__' not in script_path:
+            # First try to do a basic syntax check
+            with open(script_path, "r") as f:
+                compile(f.read(), script_path, "exec")
+                
+            # Then try to import if it seems to be a module
+            if "__main__" not in script_path:
             # Add parent directory to path if needed
             import os
             parent_dir = os.path.dirname(os.path.abspath(script_path))
@@ -731,26 +719,26 @@ try:
                 
             # Try importing as a module
             try:
-                module_name = os.path.basename(script_path).replace('.py', '')
+                module_name = os.path.basename(script_path).replace(".py", "")
                 __import__(module_name)
-                print(f"Peak memory usage: {{memory_usage((__import__, (module_name,)), max_usage=True)[0]:.2f}} MiB")
+                print("Peak memory usage: " + str(memory_usage((__import__, (module_name,)), max_usage=True)[0]) + " MiB")
             except ImportError:
                 # If import fails, use exec instead
-                with open(script_path, 'r') as f:
-                    code = compile(f.read(), script_path, 'exec')
-                    mem = memory_usage((eval, ('exec(code)', globals())), max_usage=True)[0]
-                    print(f"Peak memory usage: {{mem:.2f}} MiB")
+                with open(script_path, "r") as f:
+                    code = compile(f.read(), script_path, "exec")
+                    mem = memory_usage((eval, ("exec(code)", globals())), max_usage=True)[0]
+                    print("Peak memory usage: " + str(mem) + " MiB")
     except Exception as e:
-        print(f"Memory profiling failed: {{e}}")
+        print("Memory profiling failed: " + str(e))
         sys.exit(1)
         
 except Exception as e:
-    print(f"Memory profiling error: {{e}}")
+    print("Memory profiling error: " + str(e))
     sys.exit(1)
 "#, file_path.to_str().unwrap());
                 
                 std::fs::write(&memory_script_path, memory_script_content)
-                    .context("Failed to write temporary memory profiling script")?;
+                    .context("Failed to write temporary memory profiling script ")?;
                 
                 // Run the memory profiling script
                 let mut python_cmd = Command::new("python");
@@ -788,7 +776,7 @@ except Exception as e:
             for msg in error_messages {
                 println!("{}", msg);
             }
-            Err(anyhow!("Python validation failed"))
+            Err(anyhow!("Python validation failed "))
         } else {
             print_colored(&format!("{}: No issues found in {:?}", self.name(), file_path), true, verbose)?;
             Ok(())
@@ -796,7 +784,7 @@ except Exception as e:
     }
     
     fn name(&self) -> &str {
-        "Python Validator"
+        "Python Validator "
     }
 }
 
@@ -808,7 +796,7 @@ impl Validator for JavaScriptValidator {
         if let Some(validator_config) = config.validators.get("javascript") {
             if !validator_config.enabled {
                 if verbose {
-                    println!("JavaScript validator is disabled in config");
+                    println!("JavaScript validator is disabled in config ");
                 }
                 return Ok(());
             }
@@ -827,18 +815,18 @@ impl Validator for JavaScriptValidator {
         }
         // First check if node is available
         if !is_command_available("node") {
-            print_colored("Node.js is not installed", false, false)?;
+            print_colored("Node.js is not installed ", false, false)?;
             println!("Please install Node.js to validate JavaScript files.");
-            return Err(anyhow!("Node.js is not installed"));
+            return Err(anyhow!("Node.js is not installed "));
         }
         
         let mut cmd = Command::new("node");
-        cmd.args(["--check", file_path.to_str().unwrap()]);
+        cmd.args(["--check ", file_path.to_str().unwrap()]);
         run_command(&mut cmd, self.name(), file_path, verbose)
     }
     
     fn name(&self) -> &str {
-        "JavaScript Syntax Validator"
+        "JavaScript Syntax Validator "
     }
 }
 
@@ -849,7 +837,7 @@ impl Validator for JsonValidator {
         if let Some(validator_config) = config.validators.get("json") {
             if !validator_config.enabled {
                 if verbose {
-                    println!("JSON validator is disabled in config");
+                    println!("JSON validator is disabled in config ");
                 }
                 return Ok(());
             }
@@ -868,9 +856,9 @@ impl Validator for JsonValidator {
         }
         // Check if jq is available
         if !is_command_available("jq") {
-            print_colored("jq is not installed", false, false)?;
+            print_colored("jq is not installed ", false, false)?;
             println!("Please install jq to validate JSON files.");
-            return Err(anyhow!("jq is not installed"));
+            return Err(anyhow!("jq is not installed "));
         }
         
         let mut cmd = Command::new("jq");
@@ -879,7 +867,7 @@ impl Validator for JsonValidator {
     }
     
     fn name(&self) -> &str {
-        "JSON Validator"
+        "JSON Validator "
     }
 }
 
@@ -887,12 +875,12 @@ struct YamlValidator;
 impl Validator for YamlValidator {
     fn validate(&self, file_path: &Path, verbose: bool, _config: &Config) -> Result<()> {
         let mut cmd = Command::new("yamllint");
-        cmd.args(["-f", "parsable", file_path.to_str().unwrap()]);
+        cmd.args(["-f ", "parsable", file_path.to_str().unwrap()]);
         run_command(&mut cmd, self.name(), file_path, verbose)
     }
     
     fn name(&self) -> &str {
-        "YAML Validator"
+        "YAML Validator "
     }
 }
 
@@ -900,12 +888,12 @@ struct HtmlValidator;
 impl Validator for HtmlValidator {
     fn validate(&self, file_path: &Path, verbose: bool, _config: &Config) -> Result<()> {
         let mut cmd = Command::new("tidy");
-        cmd.args(["-q", "-e", file_path.to_str().unwrap()]);
+        cmd.args(["-q ", "-e ", file_path.to_str().unwrap()]);
         run_command(&mut cmd, self.name(), file_path, verbose)
     }
     
     fn name(&self) -> &str {
-        "HTML Validator"
+        "HTML Validator "
     }
 }
 
@@ -919,7 +907,7 @@ impl Validator for CssValidator {
     }
     
     fn name(&self) -> &str {
-        "CSS Validator"
+        "CSS Validator "
     }
 }
 
@@ -932,7 +920,7 @@ impl Validator for DockerfileValidator {
     }
     
     fn name(&self) -> &str {
-        "Dockerfile Validator"
+        "Dockerfile Validator "
     }
 }
 
@@ -945,7 +933,7 @@ impl Validator for ShellValidator {
     }
     
     fn name(&self) -> &str {
-        "Shell Script Validator"
+        "Shell Script Validator "
     }
 }
 
@@ -958,7 +946,7 @@ impl Validator for MarkdownValidator {
     }
     
     fn name(&self) -> &str {
-        "Markdown Validator"
+        "Markdown Validator "
     }
 }
 
@@ -970,7 +958,7 @@ impl Validator for TomlValidator {
         if let Some(validator_config) = config.validators.get("toml") {
             if !validator_config.enabled {
                 if verbose {
-                    println!("TOML validator is disabled in config");
+                    println!("TOML validator is disabled in config ");
                 }
                 return Ok(());
             }
@@ -1006,7 +994,7 @@ impl Validator for TomlValidator {
     }
     
     fn name(&self) -> &str {
-        "TOML Validator"
+        "TOML Validator "
     }
 }
 
@@ -1027,7 +1015,7 @@ impl Validator for RustValidator {
         if let Some(validator_config) = config.validators.get("rust") {
             if !validator_config.enabled {
                 if verbose {
-                    println!("Rust validator is disabled in config");
+                    println!("Rust validator is disabled in config ");
                 }
                 return Ok(());
             }
@@ -1043,42 +1031,23 @@ impl Validator for RustValidator {
                 return run_command(&mut cmd, self.name(), file_path, verbose);
             }
             
-            // Extract configuration options
-            if let Some(settings) = validator_config.settings.as_ref() {
-                if let Some(level) = settings.get("analysis_level") {
-                    analysis_level = level;
-                }
-                if let Some(clippy) = settings.get("use_clippy") {
-                    if clippy == "false" || clippy == "0" {
-                        use_clippy = false;
-                    }
-                }
-                if let Some(miri) = settings.get("use_miri") {
-                    if miri == "true" || miri == "1" {
-                        use_miri = true;
-                    }
-                }
-                if let Some(analyzer) = settings.get("use_analyzer") {
-                    if analyzer == "true" || analyzer == "1" {
-                        use_analyzer = true;
-                    }
-                }
-                if let Some(mirai) = settings.get("use_mirai") {
-                    if mirai == "true" || mirai == "1" {
-                        use_mirai = true;
-                    }
-                }
-                if let Some(lint) = settings.get("lint_level") {
-                    lint_level = lint;
-                }
-                if let Some(threading) = settings.get("threading_checks") {
-                    if threading == "true" || threading == "1" {
-                        threading_checks = true;
-                    }
-                }
-                if let Some(memory) = settings.get("memory_checks") {
-                    if memory == "true" || memory == "1" {
-                        memory_checks = true;
+            // Extract configuration options from args
+            if let Some(args) = &validator_config.args {
+                for arg in args {
+                    match arg.as_str() {
+                        "analysis=basic" => analysis_level = "basic",
+                        "analysis=advanced" => analysis_level = "advanced",
+                        "analysis=comprehensive" => analysis_level = "comprehensive",
+                        "use_clippy=false" => use_clippy = false,
+                        "use_miri=true" => use_miri = true,
+                        "use_analyzer=true" => use_analyzer = true,
+                        "use_mirai=true" => use_mirai = true,
+                        "lint_level=warn" => lint_level = "warn",
+                        "lint_level=deny" => lint_level = "deny",
+                        "lint_level=forbid" => lint_level = "forbid",
+                        "threading_checks=true" => threading_checks = true,
+                        "memory_checks=true" => memory_checks = true,
+                        _ => {}
                     }
                 }
             }
@@ -1086,9 +1055,9 @@ impl Validator for RustValidator {
         
         // Check if rustc is available
         if !is_command_available("rustc") {
-            print_colored("Rust compiler is not installed", false, false)?;
+            print_colored("Rust compiler is not installed ", false, false)?;
             println!("Please install Rust to validate Rust files:");
-            println!("curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh");
+            println!("curl --proto \"=https\" --tlsv1.2 -sSf https://sh.rustup.rs | sh");
             return Err(anyhow!("Rust compiler is not installed"));
         }
         
@@ -1417,6 +1386,21 @@ mod thread_tests {{
     }
 }
 
+/// C++ validator - uses C++ compiler and analysis tools
+struct CppValidator;
+impl Validator for CppValidator {
+    fn validate(&self, file_path: &Path, verbose: bool, config: &Config) -> Result<()> {
+        // For now, use the C validator as C++ is a superset of C
+        // This will check basic syntax and could be extended in the future
+        let c_validator = CValidator;
+        c_validator.validate(file_path, verbose, config)
+    }
+    
+    fn name(&self) -> &str {
+        "C++ Validator "
+    }
+}
+
 /// TypeScript validator that uses tsc for validation
 struct TypeScriptValidator;
 impl Validator for TypeScriptValidator {
@@ -1662,21 +1646,21 @@ impl Validator for VueValidator {
 const compiler = require('vue-template-compiler');
 const fs = require('fs');
 
-try {{
-    const content = fs.readFileSync('{}', 'utf8');
-    const result = compiler.parseComponent(content);
-    
-    // Check template syntax
-    if (result.template) {{
-        compiler.compile(result.template.content);
+    try {{
+        const content = fs.readFileSync("{}", "utf8");
+        const result = compiler.parseComponent(content);
+        
+        // Check template syntax
+        if (result.template) {{
+            compiler.compile(result.template.content);
+        }}
+        
+        console.log("Vue component syntax is valid");
+        process.exit(0);
+    }} catch (error) {{
+        console.error("Vue component has syntax errors: " + error.message);
+        process.exit(1);
     }}
-    
-    console.log('Vue component syntax is valid');
-    process.exit(0);
-}} catch (error) {{
-    console.error(`Vue component has syntax errors: ${{error.message}}`);
-    process.exit(1);
-}}
 "#, file_path.to_str().unwrap());
             
             std::fs::write(&validator_js_path, validator_js_content)
@@ -1804,15 +1788,15 @@ module.exports = {
             let validator_js_content = format!(r#"
 // First try to require svelte compiler
 try {{
-    const fs = require('fs');
-    const svelte = require('svelte/compiler');
+    const fs = require("fs");
+    const svelte = require("svelte/compiler");
     
-    const content = fs.readFileSync('{}', 'utf8');
+    const content = fs.readFileSync("{}", "utf8");
     
     // Determine if this is a TypeScript Svelte component
-    const isTypeScript = content.includes('<script lang="ts">') || 
+    const isTypeScript = content.includes("<script lang=\"ts\">") || 
                            content.includes("<script lang='ts'>") ||
-                           content.includes('<script lang=ts>');
+                           content.includes("<script lang=ts>");
     
     try {{
         // Parse and validate the Svelte component
@@ -1832,33 +1816,33 @@ try {{
         }});
         
         // Additional validation for component structure
-        if (!content.includes('<script') && !content.includes('<style') && !content.trim()) {{
-            throw new Error('Empty or invalid Svelte component: must contain markup, script, or style');
+        if (!content.includes("<script") && !content.includes("<style") && !content.trim()) {{
+            throw new Error("Empty or invalid Svelte component: must contain markup, script, or style");
         }}
         
         // Check for any warnings that might be useful
         if (result.warnings && result.warnings.length > 0) {{
-            console.log('\\nSvelte component has warnings:');
+            console.log("\\nSvelte component has warnings:");
             result.warnings.forEach(warning => {{
-                console.log(`- ${{warning.message}} ${{'at line ' + warning.start.line}}${{warning.code ? ` (code: ${{warning.code}})` : ''}}`);
+                console.log("- " + warning.message + " at line " + warning.start.line + (warning.code ? " (code: " + warning.code + ")" : ""));
             }});
         }}
         
-        console.log('Svelte component syntax is valid');
+        console.log("Svelte component syntax is valid");
         process.exit(0);
     }} catch (error) {{
-        console.error(`Svelte component has syntax errors: ${{error.message}}`);
+        console.error("Svelte component has syntax errors: " + error.message);
         if (error.frame) {{
             console.error(error.frame); // Show code frame if available
         }}
         process.exit(1);
     }}
 }} catch (requireError) {{
-    console.error('Svelte compiler is not installed. Please run:');
-    console.error('npm install svelte');
-    if (requireError.message.includes('Cannot find module')) {{
-        console.error('\\nYou may need to run this command in your project directory');
-        console.error('or install globally with: npm install -g svelte');
+    console.error("Svelte compiler is not installed. Please run:");
+    console.error("npm install svelte");
+    if (requireError.message.includes("Cannot find module")) {{
+        console.error("\\nYou may need to run this command in your project directory");
+        console.error("or install globally with: npm install -g svelte");
     }}
     process.exit(1);
 }}
