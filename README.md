@@ -1,10 +1,15 @@
-# Synx Project Repository
+<div align="center">
+
+<img src="assets/images/synx-logo.svg" alt="Synx Logo" width="256" height="256">
 
 [![CI](https://img.shields.io/github/actions/workflow/status/A5873/synx/ci.yml?branch=main&style=for-the-badge&logo=github&label=CI)](https://github.com/A5873/synx/actions/workflows/ci.yml)
 [![Latest Release](https://img.shields.io/github/v/release/A5873/synx?style=for-the-badge&logo=github&label=Release)](https://github.com/A5873/synx/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 
+# Synx Project Repository
+
 A CLI-first universal syntax validator and linter dispatcher built with Rust.
+</div>
 
 ## Repository Structure
 
@@ -46,4 +51,3 @@ See the [source README](source/README.md#development-status) for detailed status
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](source/LICENSE) file for details.
-
