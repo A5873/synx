@@ -13,8 +13,6 @@ if [ -f /etc/debian_version ]; then
         pkg-config \
         python3 \
         python3-pip \
-        nodejs \
-        npm \
         golang \
         openjdk-21-jdk \
         tidy \
@@ -22,8 +20,16 @@ if [ -f /etc/debian_version ]; then
         jq \
         yamllint
 
+    # Install Node.js and npm using nvm
+    echo "Installing Node.js and npm using nvm..."
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+    export NVM_DIR="$HOME/.nvm"
+    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+    nvm install node
+    nvm use node
+
     # Install Node.js tools
-    sudo npm install -g \
+    npm install -g \
         typescript \
         @typescript-eslint/parser \
         @typescript-eslint/eslint-plugin \
@@ -55,8 +61,8 @@ elif [ -f /etc/fedora-release ]; then
         jq \
         yamllint
 
-    # Rest of the installations same as Debian
-    sudo npm install -g \
+    # Rest of the installations same as above
+    npm install -g \
         typescript \
         @typescript-eslint/parser \
         @typescript-eslint/eslint-plugin \
@@ -86,7 +92,7 @@ elif [ -f /etc/arch-release ]; then
         yamllint
 
     # Rest of the installations same as above
-    sudo npm install -g \
+    npm install -g \
         typescript \
         @typescript-eslint/parser \
         @typescript-eslint/eslint-plugin \
@@ -105,9 +111,11 @@ else
 fi
 
 # Install synx
+echo "Building and installing synx..."
 cargo install --path .
 
 # Install man pages
+echo "Installing man pages..."
 sudo mkdir -p /usr/local/share/man/man1/
 sudo cp packaging/man/synx.1.gz /usr/local/share/man/man1/
 sudo mandb
