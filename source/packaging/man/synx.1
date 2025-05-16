@@ -26,55 +26,43 @@ Initialize default configuration file.
 .TP
 .BR \-s ", " \-\-strict
 Strict mode - treat warnings as errors.
+.SH SUPPORTED LANGUAGES
 .TP
-.BR \-h ", " \-\-help
-Display help message and exit.
+.B Rust
+Uses rustc for syntax and type checking
 .TP
-.BR \-V ", " \-\-version
-Display version information and exit.
-.SH FILES
+.B C/C++
+Uses gcc/g++ with -Wall and -pedantic
 .TP
-.I ~/.config/synx/config.toml
-Default configuration file location.
-.SH SUPPORTED FILE TYPES
+.B Java
+Uses javac with -Werror and checkstyle
 .TP
-.B Python (.py)
-Uses python interpreter for syntax validation
+.B Go
+Uses go vet, gofmt, and golangci-lint
 .TP
-.B JavaScript (.js)
-Uses Node.js for syntax checking
+.B TypeScript
+Uses tsc and eslint
 .TP
-.B TypeScript (.ts)
-Uses tsc for type checking
+.B Python
+Uses python -m py_compile, mypy, and pylint
 .TP
-.B HTML (.html, .htm)
-Uses html-tidy for validation
+.B JavaScript
+Uses node --check
 .TP
-.B CSS (.css)
-Uses csslint for style validation
+.B JSON
+Uses jq
 .TP
-.B JSON (.json)
-Uses jq for syntax validation
+.B YAML
+Uses yamllint
 .TP
-.B YAML (.yaml, .yml)
-Uses yamllint for syntax and style checking
+.B HTML
+Uses tidy
 .TP
-.B Dockerfile
-Uses hadolint for best practices validation
+.B CSS
+Uses csslint
 .TP
-.B Shell (.sh, .bash)
-Uses shellcheck for script validation
-.SH CONFIGURATION
-The configuration file uses TOML format and supports:
-.TP
-.B General Settings
-verbosity, strict mode, timeout
-.TP
-.B Validator Settings
-command paths, arguments, timeouts
-.TP
-.B File Mappings
-custom filename to validator mappings
+.B Shell
+Uses shellcheck
 .SH EXAMPLES
 .TP
 Validate a single file:
@@ -85,29 +73,13 @@ Watch mode with multiple files:
 .TP
 Strict validation with verbose output:
 .B synx -sv config.json
+.SH FILES
 .TP
-Use custom config:
-.B synx -c ~/myconfig.toml script.js
-.TP
-Initialize config:
-.B synx --init-config
-.SH EXIT STATUS
-.TP
-.B 0
-All validations passed successfully
-.TP
-.B 1
-Validation errors found
-.TP
-.B 2
-Command line usage error
+.I ~/.config/synx/config.toml
+Default configuration file location
+.SH AUTHOR
+Written by Alex <alexngugi.dev@gmail.com>
 .SH BUGS
 Report bugs at: https://github.com/A5873/synx/issues
-.SH AUTHOR
-Alex <alexngugi.dev@gmail.com>
 .SH COPYRIGHT
-Copyright © 2025 Alex. License MIT: https://opensource.org/licenses/MIT
-.SH SEE ALSO
-.BR shellcheck (1),
-.BR yamllint (1),
-.BR jq (1)
+Copyright © 2025 Alex. Licensed under MIT.
