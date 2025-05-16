@@ -1,0 +1,158 @@
+# This YAML file contains syntax errors and should fail validation
+# It's designed to demonstrate various types of YAML problems by category
+# Each error is annotated with severity level and spec reference
+
+# =============================================
+# Category: Document Structure Errors
+# =============================================
+
+# ERROR 1: Missing document start marker (should have "---")
+# Severity: WARNING
+# Ref: YAML spec 6.3 - Documents
+# https://yaml.org/spec/1.2.2/#63-documents
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: invalid-app
+  labels:
+    app: invalid-app
+    tier: backend
+spec:
+  replicas: 3
+
+# =============================================
+# Category: Indentation Errors
+# =============================================
+
+# ERROR 2: Incorrect indentation level
+# Selector should be indented under spec
+# Severity: ERROR
+# Ref: YAML spec 6.1 - Indentation Spaces
+# https://yaml.org/spec/1.2.2/#61-indentation-spaces
+selector:
+  matchLabels:
+    app: invalid-app
+  template:
+  metadata:  # ERROR 3: This line should be indented under template
+      labels:
+        app: invalid-app
+    spec:  # ERROR 4: Wrong indentation level (should align with metadata)
+      containers:
+      - name: app-container
+        image: invalid-app:1.0.0
+
+# =============================================
+# Category: Syntax Errors
+# =============================================
+
+        # ERROR 5: Missing colon after the key 'ports' (should be "ports:")
+        # Severity: ERROR
+        # Ref: YAML spec 7.3 - Mappings
+        # https://yaml.org/spec/1.2.2/#73-mappings
+        ports
+          - containerPort: 8080
+
+        # ERROR 6: Invalid combination of YAML and JSON syntax
+        # Severity: ERROR
+        # Ref: YAML spec 7.4 - Flow Collection Styles
+        # https://yaml.org/spec/1.2.2/#74-flow-collection-styles
+        resources: {
+          # ERROR 7: Invalid JSON format (trailing comma not allowed)
+          # Severity: ERROR
+          # Ref: YAML spec 7.4.2 - Flow Mappings
+          # https://yaml.org/spec/1.2.2/#742-flow-mappings
+          limits: {cpu: 1, memory: "512Mi",}
+          # ERROR 8: Missing comma between key-value pairs in JSON flow style
+          # Severity: ERROR
+          # Ref: YAML spec 7.4.2 - Flow Mappings
+          # https://yaml.org/spec/1.2.2/#742-flow-mappings
+          requests: {cpu: 0.5, memory: "256Mi"}
+        }
+
+# =============================================
+# Category: Collection Structure Errors
+# =============================================
+
+        env:
+        # ERROR 9: Missing dash for list item (should be "- name: MODE")
+        # Severity: ERROR
+        # Ref: YAML spec 7.1 - Sequences
+        # https://yaml.org/spec/1.2.2/#71-sequences
+        name: MODE
+        value: "production"
+
+        # ERROR 10: Invalid mapping format (mixing ":" in key and value)
+        # Severity: ERROR
+        # Ref: YAML spec 7.3 - Mappings
+        # https://yaml.org/spec/1.2.2/#73-mappings
+        - name: LOG_LEVEL: "info"
+
+        # ERROR 11: String value without a key (should have key like 'value:')
+        # Severity: ERROR
+        # Ref: YAML spec 7.3.1 - Block Mappings
+        # https://yaml.org/spec/1.2.2/#731-block-mappings
+        - name: DB_HOST
+          "localhost"
+
+# =============================================
+# Category: Formatting Errors
+# =============================================
+
+        # ERROR 12: Mixed tab and space indentation
+        # (tab used instead of spaces)
+        # Severity: ERROR
+        # Ref: YAML spec 6.1 - Indentation Spaces
+        # https://yaml.org/spec/1.2.2/#61-indentation-spaces
+		# This line uses tabs instead of spaces
+        livenessProbe:
+          httpGet:
+            path: /health
+          initialDelaySeconds: 30
+          # ERROR 13: Duplicate key (initialDelaySeconds appears twice)
+          # Severity: ERROR
+          # Ref: YAML spec 7.3.1 - Uniqueness
+          # https://yaml.org/spec/1.2.2/#731-block-mappings
+          initialDelaySeconds: 20
+
+# =============================================
+# Category: Multi-Document Errors
+# =============================================
+
+---
+# ERROR 14: Missing required apiVersion field (semantic error)
+# Severity: ERROR
+# Ref: Kubernetes API specification requires apiVersion field
+kind: Service
+
+metadata:
+  : invalid-service  # ERROR 15: Missing key (empty key with colon)
+  # Severity: ERROR
+  # Ref: YAML spec 7.3.1 - Block Mappings
+  # https://yaml.org/spec/1.2.2/#731-block-mappings
+  namespace: production
+spec:
+  selector
+    app: invalid-app  # ERROR 16: Missing colon after selector
+    # Severity: ERROR
+    # Ref: YAML spec 7.3 - Mappings
+    # https://yaml.org/spec/1.2.2/#73-mappings
+  ports:
+    - port: 80
+      - targetPort: 8080  # ERROR 17: Incorrect indentation (list inside list)
+      # Severity: ERROR
+      # Ref: YAML spec 7.1 - Sequences
+      # https://yaml.org/spec/1.2.2/#71-sequences
+      protocol: TCP
+  type: ClusterIP
+
+# ERROR 18: No document end marker when multiple documents are present
+# Severity: WARNING
+# Ref: YAML spec 6.3 - Documents
+# https://yaml.org/spec/1.2.2/#63-documents
+
+# The following line deliberately exceeds 80 characters to trigger a line length
+# warning for testing purposes
+# Severity: WARNING
+# Ref: yamllint style rule
+# https://yamllint.readthedocs.io/en/stable/rules.html#module-yamllint.rules.line_length
+this_is_a_very_long_line_that_will_trigger_a_line_length_warning_when_processed_by_yamllint_validation_tool_in_

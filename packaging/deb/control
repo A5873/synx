@@ -1,0 +1,22 @@
+Source: synx
+Section: devel
+Priority: optional
+Maintainer: Alex <alexngugi.dev@gmail.com>
+Build-Depends: debhelper (>= 12),
+               rustc,
+               cargo,
+               pkgconf
+Standards-Version: 4.6.2
+Homepage: https://github.com/A5873/synx
+Vcs-Git: https://github.com/A5873/synx.git
+Vcs-Browser: https://github.com/A5873/synx
+
+Package: synx
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: A CLI-first universal syntax validator and linter dispatcher
+ The synx tool provides a universal interface for validating and linting
+ various file types. It automatically detects file types and dispatches
+ to the appropriate validator or linter, providing a unified command-line
+ interface for all syntax validation needs.
+

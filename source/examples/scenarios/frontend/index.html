@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Synx Demo App</title>
+    <link rel="stylesheet" href="styles/main.css">
+    <link rel="stylesheet" href="styles/components.css">
+</head>
+<body>
+    <header class="header">
+        <nav class="navbar">
+            <div class="logo">
+                <h1>Synx Demo</h1>
+            </div>
+            <ul class="nav-links">
+                <li><a href="#">Home</a></li>
+                <li><a href="#">About</a></li>
+                <li><a href="#">Services</a></li>
+                <li><a href="#">Contact</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main class="container">
+        <section class="hero">
+            <h2>Welcome to the Synx Demo App</h2>
+            <p>This is a sample frontend project to demonstrate Synx's validation capabilities.</p>
+            <button id="loadDataBtn" class="btn primary">Load Data</button>
+        </section>
+
+        <section class="features">
+            <div class="feature-card">
+                <h3>HTML Validation</h3>
+                <p>Synx can validate HTML structure and syntax.</p>
+            </div>
+            <div class="feature-card">
+                <h3>CSS Validation</h3>
+                <p>Synx can validate CSS files for proper syntax.</p>
+            </div>
+            <div class="feature-card">
+                <h3>JavaScript Validation</h3>
+                <p>Synx can validate JavaScript code for errors.</p>
+            </div>
+            <div class="feature-card">
+                <h3>JSON Validation</h3>
+                <p>Synx can validate JSON configuration files.</p>
+            </div>
+        </section>
+
+        <section id="dataContainer" class="data-container">
+            <!-- Dynamic content will be loaded here -->
+        </section>
+    </main>
+
+    <footer class="footer">
+        <p>&copy; 2025 Synx Demo. All rights reserved.</p>
+    </footer>
+
+    <script src="js/main.js"></script>
+    <script src="js/data-loader.js"></script>
+</body>
+</html>
+
