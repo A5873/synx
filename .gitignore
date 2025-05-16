@@ -36,3 +36,7 @@ __pycache__/
 
 packaging/deb/pool/**/*.tar.gz
 packaging/deb/pool/**/*.deb
+# Package files
+packaging/deb/pool/
+packaging/rpm/RPMS/
+packaging/**/build/
