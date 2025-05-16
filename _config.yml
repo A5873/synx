@@ -4,7 +4,10 @@ description: Official package repository for Synx - A CLI-first universal syntax
 show_downloads: true
 google_analytics:
 minima:
-  skin: classic
+  skin: dark
 github:
   is_project_page: true
   repository_url: https://github.com/A5873/synx
+
+# Make sure all links work
+baseurl: "/synx"

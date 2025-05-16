@@ -11,7 +11,7 @@ This is the official package repository for Synx, a CLI-first universal syntax v
 
 ```bash
 # Add the repository
-echo "deb [trusted=yes] https://a5873.github.io/synx/repo/deb/dists/noble/ main" | sudo tee /etc/apt/sources.list.d/synx.list
+echo "deb [trusted=yes] https://a5873.github.io/synx/repo/deb/dists/noble main" | sudo tee /etc/apt/sources.list.d/synx.list
 
 # Update and install
 sudo apt update
@@ -48,11 +48,11 @@ paru -S synx
 
 ### Debian (.deb)
 - synx_0.2.1_amd64.deb - Latest stable release
-- [View all Debian packages](/repo/deb/pool/main/s/synx/)
+- [Browse Debian packages](https://a5873.github.io/synx/repo/deb/pool/main/s/synx/)
 
 ### RPM
 - synx-0.2.1-1.fc38.x86_64.rpm - Latest stable release
-- [View all RPM packages](/repo/rpm/)
+- [Browse RPM repository](https://a5873.github.io/synx/repo/rpm/)
 
 ## Repository Structure
 
@@ -69,6 +69,11 @@ repo/
 ├── rpm/                    # RPM repository
 └── index.md               # Repository index
 ```
+
+## Direct Download Links
+
+- [Download synx_0.2.1_amd64.deb](https://a5873.github.io/synx/repo/deb/pool/main/s/synx/synx_0.2.1_amd64.deb)
+- [Download source package (synx_0.2.1.tar.xz)](https://a5873.github.io/synx/repo/deb/pool/main/s/synx/synx_0.2.1.tar.xz)
 
 ## Verifying Package Signatures
 
