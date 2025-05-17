@@ -37,6 +37,115 @@ Contains all package distribution related files:
 - [Package Builds](packaging/README.md#building-packages)
 - [Contributing Guide](source/CONTRIBUTING.md)
 
+## Installation
+
+### Automated Installation
+
+Synx provides an automated installation script that handles both Synx itself and all necessary dependencies:
+
+```bash
+# Clone the repository
+git clone https://github.com/A5873/synx.git
+cd synx
+
+# Run the installation script
+./source/install.sh
+```
+
+The script automatically detects your Linux distribution (Debian/Ubuntu, Fedora/RHEL, or Arch Linux) and installs all required dependencies for the supported languages.
+
+### Dependencies
+
+Synx requires various tools to validate different languages. Here's a comprehensive list of dependencies:
+
+#### Build Essentials
+- `gcc`, `g++` - For C/C++ validation
+- `pkg-config` - For system libraries integration
+- Go compiler - For Go validation
+- JDK (Java Development Kit) - For Java validation
+- Node.js and npm - For JavaScript/TypeScript validation
+- Python 3 and pip - For Python validation
+
+#### Language-Specific Tools
+| Language | Required Tools | Optional Tools (Strict Mode) |
+|----------|---------------|------------------------------|
+| Rust     | `rustc`       | `clippy`                     |
+| C        | `gcc`         | `valgrind` for memory checks |
+| C++      | `g++`         | -                            |
+| C#       | .NET SDK or Mono | `dotnet format`           |
+| Python   | `python3`     | `mypy`, `pylint`             |
+| JavaScript | `node`      | `eslint`                     |
+| TypeScript | `tsc`       | `@typescript-eslint/parser`, `@typescript-eslint/eslint-plugin` |
+| Java     | `javac`       | `checkstyle`                 |
+| Go       | `go`          | `gofmt`, `golangci-lint`     |
+| HTML     | `tidy`        | -                            |
+| CSS      | `csslint`     | -                            |
+| JSON     | `jq`          | -                            |
+| YAML     | `yamllint`    | -                            |
+| Shell    | `shellcheck`  | -                            |
+| Dockerfile | `hadolint`  | -                            |
+
+### OS-Specific Installation
+
+#### Debian/Ubuntu
+
+```bash
+# System packages
+sudo apt-get update
+sudo apt-get install -y build-essential pkg-config python3 python3-pip golang openjdk-21-jdk tidy shellcheck jq yamllint
+
+# Node.js via nvm
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+nvm install node
+nvm use node
+
+# Node.js tools
+npm install -g typescript @typescript-eslint/parser @typescript-eslint/eslint-plugin eslint csslint
+
+# Python tools
+pip3 install mypy pylint
+
+# Go tools
+go install golang.org/x/lint/golint@latest
+curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.56.2
+```
+
+#### Fedora/RHEL
+
+```bash
+# System packages
+sudo dnf install -y gcc gcc-c++ golang java-latest-openjdk-devel nodejs npm python3 python3-pip tidy ShellCheck jq yamllint
+
+# Node.js tools
+npm install -g typescript @typescript-eslint/parser @typescript-eslint/eslint-plugin eslint csslint
+
+# Python tools
+pip3 install mypy pylint
+
+# Go tools
+go install golang.org/x/lint/golint@latest
+curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.56.2
+```
+
+#### Arch Linux
+
+```bash
+# System packages
+sudo pacman -Sy --needed base-devel go nodejs npm python python-pip jdk-openjdk tidy shellcheck jq yamllint
+
+# Node.js tools
+npm install -g typescript @typescript-eslint/parser @typescript-eslint/eslint-plugin eslint csslint
+
+# Python tools
+pip3 install mypy pylint
+
+# Go tools
+go install golang.org/x/lint/golint@latest
+curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.56.2
+```
+
 ## Development Status
 
 Synx is actively maintained and developed. Current status:
