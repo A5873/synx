@@ -1,0 +1,24 @@
+# Synx Configuration Example
+
+[general]
+strict = false
+verbose = true
+watch_interval = 5
+
+[validators.rust]
+edition = "2021"
+clippy = true
+clippy_flags = ["--deny=warnings"]
+
+[validators.python]
+mypy_strict = true
+pylint_threshold = 9.0
+ignore_rules = ["C0111"]
+
+[validators.javascript]
+eslint_config = "./custom_eslint.json"
+node_version = "18"
+
+[validators.go]
+test = true
+lint_flags = ["--enable-all"]
