@@ -240,10 +240,28 @@ fn validate_csharp(file_path: &Path, options: &ValidationOptions) -> Result<bool
 }
 
 fn validate_c(file_path: &Path, options: &ValidationOptions) -> Result<bool> {
+<<<<<<< HEAD
     let mut cmd = Command::new("g++");
+=======
+    let mut cmd = Command::new("gcc");
+>>>>>>> feature/config-system-backup
     cmd.arg("-fsyntax-only")
-       .arg("-pedantic")
-       .arg("-Wall");
+       .arg("-Wall")
+       .arg("-pedantic");
+
+    // Add include paths from config if available
+    if let Some(config) = &options.config {
+        if let Some(include_paths) = &config.validators.c.include_paths {
+            for path in include_paths {
+                cmd.arg(format!("-I{}", path));
+            }
+        }
+        
+        // Apply C standard from config if available
+        if let Some(standard) = &config.validators.c.standard {
+            cmd.arg(format!("-std={}", standard));
+        }
+    }
 
     // Apply C++ standard from config if available
     if let Some(config) = &options.config {
@@ -262,7 +280,12 @@ fn validate_c(file_path: &Path, options: &ValidationOptions) -> Result<bool> {
     }
 
     if options.strict {
-        cmd.arg("-Werror");
+        cmd.arg("-Werror")
+           .arg("-Wextra")
+           .arg("-Wconversion")
+           .arg("-Wformat=2")
+           .arg("-Wuninitialized")
+           .arg("-Wmissing-prototypes");
     }
 
     cmd.arg(file_path);
@@ -270,9 +293,45 @@ fn validate_c(file_path: &Path, options: &ValidationOptions) -> Result<bool> {
     let success = output.status.success();
 
     if !success && options.verbose {
-        eprintln!("C++ validation errors:");
+        eprintln!("C validation errors:");
         if !output.stderr.is_empty() {
             eprintln!("{}", String::from_utf8_lossy(&output.stderr));
+        }
+    }
+
+    // In strict mode, also check for memory leaks with valgrind if applicable
+    if success && options.strict {
+        // Check if file is executable by compiling it first
+        let temp_dir = tempfile::Builder::new()
+                        .prefix("synx-c-check")
+                        .tempdir()?;
+        let output_path = temp_dir.path().join("a.out");
+        
+        let compile_output = Command::new("gcc")
+            .arg("-o")
+            .arg(&output_path)
+            .arg(file_path)
+            .output();
+            
+        if let Ok(output) = compile_output {
+            if output.status.success() {
+                // Check if valgrind is available
+                if Command::new("valgrind").arg("--version").output().is_ok() {
+                    let valgrind_output = Command::new("valgrind")
+                        .arg("--leak-check=full")
+                        .arg("--error-exitcode=1")
+                        .arg(&output_path)
+                        .output()?;
+                        
+                    if !valgrind_output.status.success() && options.verbose {
+                        eprintln!("Memory leak detected:");
+                        eprintln!("{}", String::from_utf8_lossy(&valgrind_output.stderr));
+                        return Ok(false);
+                    }
+                } else if options.verbose {
+                    eprintln!("Note: Valgrind not available, skipping memory leak check");
+                }
+            }
         }
     }
 
@@ -761,6 +820,7 @@ fn validate_dockerfile(file_path: &Path, options: &ValidationOptions) -> Result<
 
     Ok(success)
 }
+<<<<<<< HEAD
 
 <<<<<<< HEAD
 fn validate_custom(file_path: &Path, options: &ValidationOptions, custom_config: &config::CustomValidatorConfig) -> Result<bool> {
@@ -969,6 +1029,8 @@ fn validate_csharp(file_path: &Path, options: &ValidationOptions) -> Result<bool
                     return Ok(false);
                 }
             }
+=======
+>>>>>>> feature/config-system-backup
         }
         
         return Ok(success);
