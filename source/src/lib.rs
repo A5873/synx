@@ -1,133 +1,132 @@
-pub mod config;
-pub mod detectors;
-pub mod validators;
-
 use std::path::Path;
-use anyhow::{Result, Context, anyhow};
-use termcolor::{ColorChoice, ColorSpec, StandardStream, WriteColor};
-use std::io::Write;
+use anyhow::{Result, anyhow};
+use notify::{Watcher, RecursiveMode};
+use std::time::Duration;
+use std::sync::mpsc::channel;
 
-/// Custom error type for validation failures
-#[derive(Debug)]
-pub enum ValidationError {
-    /// File not found
-    FileNotFound(String),
-    /// Unsupported file type
-    UnsupportedType(String),
-    /// Validation failed
-    ValidationFailed(String),
-    /// Configuration error
-    ConfigError(String),
+mod validators;
+use validators::{ValidationOptions, validate_file};
+
+pub struct Config {
+    pub strict: bool,
+    pub verbose: bool,
+    pub watch: bool,
+    pub watch_interval: u64,
 }
 
-impl std::fmt::Display for ValidationError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ValidationError::FileNotFound(path) => write!(f, "File not found: {}", path),
-            ValidationError::UnsupportedType(file_type) => write!(f, "Unsupported file type: {}", file_type),
-            ValidationError::ValidationFailed(msg) => write!(f, "Validation failed: {}", msg),
-            ValidationError::ConfigError(msg) => write!(f, "Configuration error: {}", msg),
+impl Default for Config {
+    fn default() -> Self {
+        Config {
+            strict: false,
+            verbose: false,
+            watch: false,
+            watch_interval: 2,
         }
     }
 }
 
-impl std::error::Error for ValidationError {}
+/// Run validation on the specified files
+pub fn run(files: &[String], config: &Config) -> Result<bool> {
+    let mut success = true;
 
-/// Helper function to print status messages
-pub fn print_status(message: &str, success: bool, verbose: bool) -> Result<()> {
-    if !verbose && success {
-        return Ok(());
-    }
-    
-    let mut stdout = StandardStream::stdout(ColorChoice::Auto);
-    
-    if success {
-        stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Green)))?;
-        writeln!(&mut stdout, "✓ {}", message)?;
+    if config.watch {
+        watch_files(files, config)?;
     } else {
-        stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Red)))?;
-        writeln!(&mut stdout, "✗ {}", message)?;
+        success = validate_files(files, config)?;
     }
-    stdout.reset()?;
-    
-    Ok(())
+
+    Ok(success)
 }
 
-/// Main function to validate a file
-pub fn validate_file(
-    file_path: &Path, 
-    verbose: bool, 
-    config_path: Option<&Path>
-) -> Result<()> {
-    // Check if file exists
-    if !file_path.exists() {
-        return Err(anyhow!(ValidationError::FileNotFound(
-            file_path.to_string_lossy().to_string()
-        )));
-    }
-    // Load configuration
-    let config = config::Config::load(config_path)?;
-    
-    // Detect file type
-    let file_type = detectors::detect_file_type(file_path)
-        .context(format!("Failed to detect file type for {:?}", file_path))?;
-    
-    if verbose {
-        println!("Detected file type: {}", file_type);
-    }
-    
-    // Get validator for the file type
-    let validator = validators::get_validator(&file_type)
-        .context(format!("No validator found for file type: {}", file_type))?;
-    
-    // Run validation
-    validator.validate(file_path, verbose, &config)
-        .context(format!("Validation failed for {:?}", file_path))
-}
+/// Watch files for changes and revalidate
+fn watch_files(files: &[String], config: &Config) -> Result<bool> {
+    println!("Watching files for changes. Press Ctrl+C to stop.");
 
-/// Check if a validator is available for a file
-pub fn has_validator_for_file(file_path: &Path) -> Result<bool> {
-    if !file_path.exists() {
-        return Ok(false);
-    }
-    
-    let file_type = detectors::detect_file_type(file_path)?;
-    match validators::get_validator(&file_type) {
-        Ok(_) => Ok(true),
-        Err(_) => Ok(false),
-    }
-}
+    let (tx, rx) = channel();
+    let mut watcher = notify::recommended_watcher(move |res| {
+        tx.send(res).unwrap();
+    })?;
 
-/// Get a list of all supported file extensions
-pub fn get_supported_extensions() -> Vec<&'static str> {
-    vec![
-        "py", "js", "ts", "html", "htm", "css", "json", 
-        "yaml", "yml", "toml", "sh", "bash", "zsh",
-        "md", "markdown", "rs", "c", "cpp", "cc", "cxx",
-        "Dockerfile",
-    ]
+    for file in files {
+        watcher.watch(Path::new(file), RecursiveMode::NonRecursive)?;
+    }
+
+    loop {
+        match rx.recv_timeout(Duration::from_secs(config.watch_interval)) {
+            Ok(_) => {
+                println!("\nChange detected, revalidating...");
+                validate_files(files, config)?;
+            }
+            Err(std::sync::mpsc::RecvTimeoutError::Timeout) => continue,
+            Err(e) => return Err(anyhow!("Watch error: {}", e)),
+        }
+    }
 }
 
 /// Validate multiple files
-pub fn validate_files(
-    file_paths: &[&Path],
-    verbose: bool,
-    config_path: Option<&Path>,
-) -> Result<(usize, usize)> {
-    let mut success_count = 0;
-    let mut failure_count = 0;
-    
-    for file_path in file_paths {
-        match validate_file(file_path, verbose, config_path) {
-            Ok(_) => {
-                success_count += 1;
-            },
+fn validate_files(files: &[String], config: &Config) -> Result<bool> {
+    let options = ValidationOptions {
+        strict: config.strict,
+        verbose: config.verbose,
+    };
+
+    let mut success = true;
+    for file in files {
+        let path = Path::new(file);
+        if !path.exists() {
+            eprintln!("File not found: {}", file);
+            success = false;
+            continue;
+        }
+
+        match validate_file(path, &options) {
+            Ok(valid) => {
+                if !valid {
+                    success = false;
+                } else if config.verbose {
+                    println!("✓ {}", file);
+                }
+            }
             Err(e) => {
-                println!("Error validating {:?}: {}", file_path, e);
-                failure_count += 1;
+                eprintln!("Error validating {}: {}", file, e);
+                success = false;
             }
         }
     }
-    
-    Ok((success_count, failure_count))
+
+    Ok(success)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs::File;
+    use std::io::Write;
+    use tempfile::tempdir;
+
+    #[test]
+    fn test_validate_valid_json() -> Result<()> {
+        let dir = tempdir()?;
+        let file_path = dir.path().join("valid.json");
+        let mut file = File::create(&file_path)?;
+        writeln!(file, "{{ \"key\": \"value\" }}")?;
+
+        let config = Config::default();
+        let result = run(&[file_path.to_string_lossy().to_string()], &config)?;
+        assert!(result);
+        Ok(())
+    }
+
+    #[test]
+    fn test_validate_invalid_json() -> Result<()> {
+        let dir = tempdir()?;
+        let file_path = dir.path().join("invalid.json");
+        let mut file = File::create(&file_path)?;
+        writeln!(file, "{{ invalid json }}")?;
+
+        let config = Config::default();
+        let result = run(&[file_path.to_string_lossy().to_string()], &config)?;
+        assert!(!result);
+        Ok(())
+    }
 }
