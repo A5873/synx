@@ -36,6 +36,9 @@ use syntect::highlighting::{ThemeSet, Theme};
 use syntect::parsing::SyntaxSet;
 use uuid::Uuid;
 
+// Import lint rule explanations
+use crate::lints::{LintRules, LintRule};
+
 use crate::validators::{ValidationIssue, IssueSeverity, ValidationReport};
 
 mod syntax;
@@ -95,6 +98,15 @@ pub struct AppState {
     
     // Current view scroll position
     scroll_position: u16,
+    
+    // Lint rules collection
+    lint_rules: LintRules,
+    
+    // Currently selected lint rule
+    current_rule: Option<String>,
+    
+    // Whether to show examples in explanation
+    show_examples: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -102,6 +114,7 @@ enum Tab {
     Issues,
     SyntaxTree,
     Actions,
+    Explanation,
 }
 
 impl TuiApp {
@@ -157,6 +170,9 @@ impl TuiApp {
         // Parse syntax tree for the file
         let syntax_tree = syntax::parse_file(&first_file, &parsers)?;
         
+        // Initialize lint rules
+        let lint_rules = LintRules::new();
+
         let state = AppState {
             issue_files,
             current_file: 0,
@@ -169,6 +185,9 @@ impl TuiApp {
             should_exit: false,
             navigation_history: Vec::new(),
             scroll_position: 0,
+            lint_rules,
+            current_rule: None,
+            show_examples: true,
         };
         
         Ok(Self {
@@ -235,6 +254,7 @@ impl TuiApp {
             Tab::Issues => self.draw_issues_view(f, chunks[1]),
             Tab::SyntaxTree => self.draw_syntax_tree_view(f, chunks[1]),
             Tab::Actions => self.draw_actions_view(f, chunks[1]),
+            Tab::Explanation => self.draw_explanation_view(f, chunks[1]),
         }
         
         // Draw status bar
@@ -243,11 +263,12 @@ impl TuiApp {
     
     /// Draw the tab bar
     fn draw_tabs<B: Backend>(&self, f: &mut Frame<B>, area: Rect) {
-        let tab_titles = vec!["Issues", "Syntax Tree", "Actions"];
+        let tab_titles = vec!["Issues", "Syntax Tree", "Actions", "Explanation"];
         let active_tab_idx = match self.state.active_tab {
             Tab::Issues => 0,
             Tab::SyntaxTree => 1,
             Tab::Actions => 2,
+            Tab::Explanation => 3,
         };
         
         let tabs = Tabs::new(
@@ -282,6 +303,28 @@ impl TuiApp {
         
         // Draw issue details
         self.draw_issue_details(f, chunks[1]);
+    }
+    
+    /// Draw the explanation view
+    fn draw_explanation_view<B: Backend>(&self, f: &mut Frame<B>, area: Rect) {
+        if let Some(rule_code) = &self.state.current_rule {
+            if let Some(rule) = self.state.lint_rules.find_rule_by_code(rule_code) {
+                let explanation_panel = widgets::ExplanationPanel::new(rule, self.state.show_examples);
+                f.render_widget(explanation_panel, area);
+            } else {
+                // No rule found, show error message
+                let message = Paragraph::new(format!("No explanation found for rule code: {}", rule_code))
+                    .block(Block::default().borders(Borders::ALL).title("Explanation Error"))
+                    .wrap(Wrap { trim: true });
+                f.render_widget(message, area);
+            }
+        } else {
+            // No rule selected, show message
+            let message = Paragraph::new("No rule selected. Press 'e' while viewing an issue to see its explanation.")
+                .block(Block::default().borders(Borders::ALL).title("Explanation"))
+                .wrap(Wrap { trim: true });
+            f.render_widget(message, area);
+        }
     }
     
     /// Draw the code view
@@ -378,7 +421,11 @@ impl TuiApp {
             "No issues".to_string()
         };
         
-        let help_text = "q: Quit | Tab: Switch view | n: Next issue | p: Previous issue | f: Fix | i: Ignore";
+        // Customize help text based on active tab
+        let help_text = match self.state.active_tab {
+            Tab::Explanation => "q: Quit | Tab: Switch view | x: Toggle examples | t: Next related rule | e: Back to issue",
+            _ => "q: Quit | Tab: Switch view | n: Next issue | p: Previous issue | f: Fix | i: Ignore | e: Explanation",
+        };
         
         let status_text = vec![
             Spans::from(Span::styled(file_info, Style::default().fg(Color::Cyan))),
@@ -406,8 +453,52 @@ impl TuiApp {
                 self.state.active_tab = match self.state.active_tab {
                     Tab::Issues => Tab::SyntaxTree,
                     Tab::SyntaxTree => Tab::Actions,
-                    Tab::Actions => Tab::Issues,
+                    Tab::Actions => Tab::Explanation,
+                    Tab::Explanation => Tab::Issues,
                 };
+            }
+            
+            // Show explanation for current issue
+            KeyCode::Char('e') => {
+                if !self.state.issues.is_empty() {
+                    let current_issue = &self.state.issues[self.state.current_issue];
+                    
+                    // Extract rule code from issue type (format typically: "type:rule_code")
+                    let rule_code = if let Some(code_pos) = current_issue.issue_type.find(':') {
+                        let code = &current_issue.issue_type[code_pos + 1..];
+                        Some(code.trim().to_string())
+                    } else {
+                        // As a fallback, try to guess the rule code from the issue type
+                        match current_issue.issue_type.as_str() {
+                            "unused_variable" | "unused_var" => Some("R0001".to_string()), // Rust unused variable
+                            "unused_import" => Some("R0002".to_string()),                  // Rust unused import
+                            "unused_must_use" => Some("R0003".to_string()),               // Rust unused must_use
+                            "dead_code" => Some("R0004".to_string()),                     // Rust dead code
+                            "no_var" => Some("J0002".to_string()),                       // JS no var
+                            _ => None,
+                        }
+                    };
+                    
+                    // Set current rule if found
+                    if let Some(code) = rule_code {
+                        self.state.current_rule = Some(code);
+                        
+                        // Switch to explanation tab
+                        self.state.active_tab = Tab::Explanation;
+                        
+                        debug!("Showing explanation for rule: {}", code);
+                    } else {
+                        debug!("No rule code found for issue: {}", current_issue.issue_type);
+                    }
+                }
+            }
+            
+            // Toggle code examples in explanation
+            KeyCode::Char('x') => {
+                if self.state.active_tab == Tab::Explanation {
+                    self.state.show_examples = !self.state.show_examples;
+                    debug!("Examples display toggled: {}", self.state.show_examples);
+                }
             }
             
             // Navigation - next issue
@@ -447,12 +538,7 @@ impl TuiApp {
             KeyCode::Char('P') => {
                 if self.state.current_file > 0 {
                     // Save current position in navigation history
-                    self.state.navigation_history.push((self.state.current_file, self.state.current_issue));
-                    
-                    // Move to previous file
-                    self.prev_file()?;
-                }
-            }
+                    self
             
             // Navigation - back in history
             KeyCode::Char('b') => {
@@ -526,6 +612,46 @@ impl TuiApp {
                 let total_lines = self.state.file_content.lines().count() as u16;
                 if total_lines > 20 {
                     self.state.scroll_position = total_lines - 20;
+                }
+            }
+            
+            // Handle action-specific shortcuts when in Actions tab
+            // Handle explanation-specific shortcuts when in Explanation tab
+            _ if self.state.active_tab == Tab::Explanation => {
+                match key.code {
+                    KeyCode::Char('t') => {
+                        // Toggle between explanation views
+                        if let Some(current_code) = &self.state.current_rule {
+                            // Try to find alternative rules to display
+                            let rule_family = match current_code.chars().next() {
+                                Some('R') => "R", // Rust rules
+                                Some('J') => "J", // JavaScript rules
+                                Some('P') => "P", // Python rules
+                                _ => "",
+                            };
+                            
+                            if !rule_family.is_empty() {
+                                // Find next rule in the family
+                                let rules: Vec<&LintRule> = self.state.lint_rules.rules_by_language
+                                    .values()
+                                    .flatten()
+                                    .filter(|r| r.code.starts_with(rule_family))
+                                    .collect();
+                                
+                                if !rules.is_empty() {
+                                    // Find current rule index
+                                    let current_idx = rules.iter().position(|r| r.code == *current_code);
+                                    
+                                    if let Some(idx) = current_idx {
+                                        // Get next rule in sequence (or wrap around)
+                                        let next_idx = (idx + 1) % rules.len();
+                                        self.state.current_rule = Some(rules[next_idx].code.clone());
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    _ => {}
                 }
             }
             

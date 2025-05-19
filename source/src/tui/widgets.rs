@@ -313,6 +313,136 @@ impl<'a> Widget for IssuePanel<'a> {
     }
 }
 
+/// Widget for displaying a lint rule explanation
+pub struct ExplanationPanel<'a> {
+    /// The lint rule to explain
+    rule: &'a crate::lints::LintRule,
+    
+    /// Whether to show examples
+    show_examples: bool,
+}
+
+impl<'a> ExplanationPanel<'a> {
+    /// Create a new explanation panel
+    pub fn new(rule: &'a crate::lints::LintRule, show_examples: bool) -> Self {
+        Self { rule, show_examples }
+    }
+}
+
+impl<'a> Widget for ExplanationPanel<'a> {
+    fn render(self, area: Rect, buf: &mut Buffer) {
+        // Create a block for the explanation panel
+        let block = Block::default()
+            .borders(Borders::ALL)
+            .title(format!("Rule: {} ({})", self.rule.name, self.rule.code));
+            
+        // Render block
+        block.render(area, buf);
+        
+        // Calculate inner area
+        let inner_area = block.inner(area);
+        
+        // Create layout for sections
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Length(3),  // Header info
+                Constraint::Min(10),    // Explanation
+                Constraint::Length(if self.show_examples { 10 } else { 0 }),  // Examples
+            ].as_ref())
+            .split(inner_area);
+            
+        // Render header info
+        let severity_style = match self.rule.severity {
+            crate::lints::LintSeverity::Error => Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+            crate::lints::LintSeverity::Warning => Style::default().fg(Color::Yellow),
+            crate::lints::LintSeverity::Info => Style::default().fg(Color::Blue),
+        };
+        
+        let header = Paragraph::new(vec![
+            Spans::from(vec![
+                Span::styled("Description: ", Style::default().fg(Color::Gray)),
+                Span::styled(&self.rule.description, Style::default().fg(Color::White)),
+            ]),
+            Spans::from(vec![
+                Span::styled("Severity: ", Style::default().fg(Color::Gray)),
+                Span::styled(
+                    format!("{:?}", self.rule.severity),
+                    severity_style
+                ),
+            ]),
+        ]);
+        
+        // Format explanation
+        let explanation_lines: Vec<Spans> = self.rule.explanation
+            .lines()
+            .map(|line| {
+                if line.starts_with("##") {
+                    // Section header
+                    Spans::from(Span::styled(
+                        line,
+                        Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+                    ))
+                } else if line.starts_with("-") {
+                    // List item
+                    Spans::from(vec![
+                        Span::styled("  ", Style::default()),
+                        Span::styled(line, Style::default().fg(Color::Cyan)),
+                    ])
+                } else {
+                    // Normal text
+                    Spans::from(Span::styled(line, Style::default()))
+                }
+            })
+            .collect();
+            
+        let explanation = Paragraph::new(explanation_lines)
+            .wrap(Wrap { trim: true })
+            .scroll((0, 0));
+            
+        // Render examples if requested
+        let mut examples_text = Vec::new();
+        if self.show_examples {
+            examples_text.push(Spans::from(Span::styled(
+                "Incorrect Example:",
+                Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)
+            )));
+            
+            self.rule.incorrect_example.lines().for_each(|line| {
+                examples_text.push(Spans::from(Span::styled(
+                    line,
+                    Style::default().fg(Color::White)
+                )));
+            });
+            
+            examples_text.push(Spans::from(Span::styled(
+                "Correct Example:",
+                Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
+            )));
+            
+            self.rule.correct_example.lines().for_each(|line| {
+                examples_text.push(Spans::from(Span::styled(
+                    line,
+                    Style::default().fg(Color::White)
+                )));
+            });
+        }
+        
+        let examples = Paragraph::new(examples_text)
+            .wrap(Wrap { trim: false })
+            .scroll((0, 0))
+            .block(Block::default().borders(Borders::TOP).title("Examples"));
+            
+        // Render all components
+        header.render(chunks[0], buf);
+        explanation.render(chunks[1], buf);
+        
+        if self.show_examples {
+            examples.render(chunks[2], buf);
+        }
+    }
+}
+
 /// Widget for displaying an action menu
 pub struct ActionMenu<'a> {
     /// The issue to display actions for
