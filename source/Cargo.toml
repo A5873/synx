@@ -1,23 +1,115 @@
 [package]
 name = "synx"
-version = "0.2.1"
+version = "0.1.0"
 edition = "2021"
-description = "A CLI-first universal syntax validator and linter dispatcher"
-authors = ["Alex"]
+authors = ["Alex <alexngugi.dev@gmail.com>"]
+description = "A secure code validation and formatting system"
 license = "MIT"
-readme = "README.md"
-repository = "https://github.com/A5873/synx"
-keywords = ["linter", "validator", "syntax", "cli", "development-tools"]
-categories = ["command-line-utilities", "development-tools"]
 
 [dependencies]
-clap = { version = "4.4", features = ["derive"] }
-serde = { version = "1.0", features = ["derive"] }
-tree_magic_mini = "3.0"
+# Error handling
 anyhow = "1.0"
-termcolor = "1.4"
-toml = "0.8"
-notify = "6.1"
-dirs = "5.0"
+
+# Cryptographic operations
+blake3 = "1.5"
+getrandom = "0.2"
+
+# Async runtime
+tokio = { version = "1.32", features = ["full"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+toml = "0.8"
+
+# Logging and configuration
+log = "0.4"
+env_logger = "0.10"
+once_cell = "1.18"
+lazy_static = "1.4"
+
+# File system and path handling
+which = "5.0"
 tempfile = "3.8"
+dirs = "5.0"
+
+# Pattern matching and text processing
+regex = "1.9"
+
+# Version handling
+semver = "1.0"
+
+# Security features
+seccomp-rs = "0.2"
+libc = "0.2"
+
+# TUI features
+tui = { version = "0.19", default-features = false, features = ["crossterm", "serde"] }
+crossterm = { version = "0.26", features = ["event-stream"] }
+uuid = { version = "1.3", features = ["v4"] }
+
+# Syntax highlighting and AST
+tree-sitter = "0.20"
+tree-sitter-rust = "0.20"
+tree-sitter-python = "0.20"
+tree-sitter-javascript = "0.20"
+tree-sitter-typescript = "0.20"
+tree-sitter-c = "0.20"
+tree-sitter-cpp = "0.20"
+tree-sitter-go = "0.20"
+tree-sitter-java = "0.20"
+syntect = "5.0"
+
+[target.'cfg(windows)'.dependencies]
+windows-security = "0.1"
+
+[dev-dependencies]
+tempfile = "3.8"
+assert_fs = "1.0"
+predicates = "3.0"
+
+[features]
+default = ["all-validators"]
+all-validators = []
+minimal = []
+
+# Optional validators
+python = []
+javascript = []
+typescript = []
+rust = []
+cpp = []
+java = []
+csharp = []
+go = []
+
+[profile.release]
+# Enable link-time optimization
+lto = true
+# Enable debug information
+debug = true
+# Optimize for size
+opt-level = "s"
+# Enable stack unwinding
+panic = "unwind"
+
+[profile.dev]
+# Enable debug assertions
+debug-assertions = true
+# Enable overflow checks
+overflow-checks = true
+# Enable debug information
+debug = true
+
+[workspace]
+members = [
+    "source",
+]
+
+[[bin]]
+name = "synx"
+path = "src/main.rs"
+
+[lib]
+name = "synx"
+path = "src/lib.rs"
