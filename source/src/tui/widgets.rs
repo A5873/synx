@@ -37,7 +37,87 @@ pub struct CodeView<'a> {
     
     /// Current scroll position
     scroll: u16,
-}
+    /// Render examples in side-by-side comparison mode
+    fn render_side_by_side_examples(&self, area: Rect, buf: &mut Buffer) {
+        // Create title block
+        let block = Block::default()
+            .borders(Borders::TOP)
+            .title("Code Examples (Side-by-Side)");
+        
+        block.render(area, buf);
+        
+        // Calculate inner area
+        let inner = block.inner(area);
+        
+        // Split into left and right columns
+        let columns = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([
+                Constraint::Percentage(50),
+                Constraint::Percentage(50),
+            ].as_ref())
+            .split(inner);
+        
+        // Calculate file extension based on rule code
+        let file_ext = match self.rule.code.chars().next() {
+            Some('R') => Path::new("example.rs"),
+            Some('J') => Path::new("example.js"),
+            Some('P') => Path::new("example.py"),
+            Some('C') => Path::new("example.cpp"),
+            _ => Path::new("example.txt"),
+        };
+        
+        // Create blocks for each column with appropriate styling
+        let incorrect_block = Block::default()
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Red))
+            .title(Span::styled("Incorrect Code", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)));
+            
+        let correct_block = Block::default()
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Green))
+            .title(Span::styled("Correct Code", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)));
+        
+        // Render the blocks
+        incorrect_block.render(columns[0], buf);
+        correct_block.render(columns[1], buf);
+        
+        // Calculate content areas inside blocks
+        let incorrect_content_area = incorrect_block.inner(columns[0]);
+        let correct_content_area = correct_block.inner(columns[1]);
+        
+        // Get syntax highlighted code
+        let incorrect_highlighted = self.highlighter.highlight(&self.rule.incorrect_example, file_ext);
+        let correct_highlighted = self.highlighter.highlight(&self.rule.correct_example, file_ext);
+        
+        // Convert highlighted spans to annotated spans with error indicators
+        let incorrect_annotated = self.annotate_incorrect_code(&incorrect_highlighted);
+        
+        // Render code content
+        for (i, line) in incorrect_annotated.iter().enumerate() {
+            if i < incorrect_content_area.height as usize {
+                let mut x_offset = 0;
+                for span in line.spans.iter() {
+                    buf.set_string(
+                        incorrect_content_area.x + x_offset,
+                        incorrect_content_area.y + i as u16,
+                        span.content.as_ref(),
+                        span.style,
+                    );
+                    x_offset += span.content.width() as u16;
+                }
+            }
+        }
+        
+        for (i, line) in correct_highlighted.iter().enumerate() {
+            if i < correct_content_area.height as usize {
+                let mut x_offset = 0;
+                for span in line.spans.iter() {
+                    buf.set_string(
+                        correct_content_area.x + x_offset,
+                        correct_content_area.y + i as u16,
+                        span.content.as_ref(),
+                        span
 
 impl<'a> CodeView<'a> {
     /// Create a new code view
@@ -320,12 +400,29 @@ pub struct ExplanationPanel<'a> {
     
     /// Whether to show examples
     show_examples: bool,
+    
+    /// Whether to show side-by-side comparison
+    side_by_side: bool,
+    
+    /// Syntax highlighter for code examples
+    highlighter: &'a SyntaxHighlighter,
 }
 
 impl<'a> ExplanationPanel<'a> {
     /// Create a new explanation panel
-    pub fn new(rule: &'a crate::lints::LintRule, show_examples: bool) -> Self {
-        Self { rule, show_examples }
+    pub fn new(rule: &'a crate::lints::LintRule, show_examples: bool, highlighter: &'a SyntaxHighlighter) -> Self {
+        Self { 
+            rule, 
+            show_examples,
+            side_by_side: true, // Default to side-by-side mode
+            highlighter,
+        }
+    }
+    
+    /// Toggle side-by-side mode
+    pub fn with_side_by_side(mut self, side_by_side: bool) -> Self {
+        self.side_by_side = side_by_side;
+        self
     }
 }
 
@@ -342,21 +439,41 @@ impl<'a> Widget for ExplanationPanel<'a> {
         // Calculate inner area
         let inner_area = block.inner(area);
         
+        // Determine size for examples section based on display mode
+        let example_size = if self.show_examples {
+            if self.side_by_side {
+                // Side-by-side needs more vertical space
+                15
+            } else {
+                // Traditional mode
+                12
+            }
+        } else {
+            0
+        };
+        
         // Create layout for sections
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(3),  // Header info
-                Constraint::Min(10),    // Explanation
-                Constraint::Length(if self.show_examples { 10 } else { 0 }),  // Examples
+                Constraint::Length(3),          // Header info
+                Constraint::Min(8),             // Explanation
+                Constraint::Length(example_size), // Examples
+                Constraint::Length(if self.show_examples { 2 } else { 0 }), // Example controls help
             ].as_ref())
             .split(inner_area);
             
-        // Render header info
+        // Render header info with enhanced styling
         let severity_style = match self.rule.severity {
             crate::lints::LintSeverity::Error => Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
             crate::lints::LintSeverity::Warning => Style::default().fg(Color::Yellow),
             crate::lints::LintSeverity::Info => Style::default().fg(Color::Blue),
+        };
+        
+        let doc_link = if let Some(link) = &self.rule.doc_link {
+            format!(" ({})", link)
+        } else {
+            "".to_string()
         };
         
         let header = Paragraph::new(vec![
@@ -370,25 +487,35 @@ impl<'a> Widget for ExplanationPanel<'a> {
                     format!("{:?}", self.rule.severity),
                     severity_style
                 ),
+                Span::styled(&doc_link, Style::default().fg(Color::Cyan)),
             ]),
         ]);
         
-        // Format explanation
+        // Format explanation with enhanced styling
         let explanation_lines: Vec<Spans> = self.rule.explanation
             .lines()
             .map(|line| {
                 if line.starts_with("##") {
-                    // Section header
+                    // Section header - more prominent with background
                     Spans::from(Span::styled(
                         line,
-                        Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+                        Style::default()
+                            .fg(Color::Black)
+                            .bg(Color::Yellow)
+                            .add_modifier(Modifier::BOLD)
                     ))
                 } else if line.starts_with("-") {
-                    // List item
+                    // List item with bullet point
                     Spans::from(vec![
-                        Span::styled("  ", Style::default()),
-                        Span::styled(line, Style::default().fg(Color::Cyan)),
+                        Span::styled("  • ", Style::default().fg(Color::Yellow)),
+                        Span::styled(&line[1..], Style::default().fg(Color::Cyan)),
                     ])
+                } else if line.contains("```") {
+                    // Code block marker
+                    Spans::from(Span::styled(
+                        line,
+                        Style::default().fg(Color::DarkGray).add_modifier(Modifier::ITALIC)
+                    ))
                 } else {
                     // Normal text
                     Spans::from(Span::styled(line, Style::default()))
@@ -398,49 +525,38 @@ impl<'a> Widget for ExplanationPanel<'a> {
             
         let explanation = Paragraph::new(explanation_lines)
             .wrap(Wrap { trim: true })
-            .scroll((0, 0));
-            
-        // Render examples if requested
-        let mut examples_text = Vec::new();
-        if self.show_examples {
-            examples_text.push(Spans::from(Span::styled(
-                "Incorrect Example:",
-                Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)
-            )));
-            
-            self.rule.incorrect_example.lines().for_each(|line| {
-                examples_text.push(Spans::from(Span::styled(
-                    line,
-                    Style::default().fg(Color::White)
-                )));
-            });
-            
-            examples_text.push(Spans::from(Span::styled(
-                "Correct Example:",
-                Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
-            )));
-            
-            self.rule.correct_example.lines().for_each(|line| {
-                examples_text.push(Spans::from(Span::styled(
-                    line,
-                    Style::default().fg(Color::White)
-                )));
-            });
-        }
-        
-        let examples = Paragraph::new(examples_text)
-            .wrap(Wrap { trim: false })
             .scroll((0, 0))
-            .block(Block::default().borders(Borders::TOP).title("Examples"));
+            .block(Block::default().borders(Borders::TOP).title("Explanation"));
+        
+        // Only render examples if requested
+        if self.show_examples {
+            if self.side_by_side {
+                // Side-by-side comparison mode
+                self.render_side_by_side_examples(chunks[2], buf);
+            } else {
+                // Traditional sequential examples
+                self.render_sequential_examples(chunks[2], buf);
+            }
             
-        // Render all components
+            // Example control help
+            let example_help = Paragraph::new(
+                Spans::from(vec![
+                    Span::styled("x: ", Style::default().fg(Color::Yellow)),
+                    Span::raw("Toggle examples  "),
+                    Span::styled("s: ", Style::default().fg(Color::Yellow)),
+                    Span::raw("Toggle side-by-side  "),
+                    Span::styled("a: ", Style::default().fg(Color::Yellow)),
+                    Span::raw("Show annotations"),
+                ])
+            );
+            example_help.render(chunks[3], buf);
+        }
+            
+        // Render header and explanation
         header.render(chunks[0], buf);
         explanation.render(chunks[1], buf);
-        
-        if self.show_examples {
-            examples.render(chunks[2], buf);
-        }
     }
+}
 }
 
 /// Widget for displaying an action menu
