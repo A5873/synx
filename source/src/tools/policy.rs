@@ -3,8 +3,9 @@ use std::collections::{HashMap, HashSet};
 use anyhow::{Result, anyhow, Context};
 use serde::{Serialize, Deserialize};
 use log::{debug, warn, error};
+use std::process;
 
-use super::audit;
+use super::audit::{self, EventSeverity};
 use super::secure::SecurityConfig;
 use super::paths::PathSecurityConfig;
 
@@ -129,6 +130,7 @@ pub struct FileSecurityChecks {
 pub struct PolicyEnforcer {
     policy: SecurityPolicy,
     current_user: String,
+    session_id: String,
 }
 
 impl PolicyEnforcer {
@@ -136,9 +138,13 @@ impl PolicyEnforcer {
     pub fn new(policy: SecurityPolicy) -> Result<Self> {
         let current_user = super::audit::get_current_user();
         
+        // Generate a unique session ID for audit correlation
+        let session_id = format!("session_{}", uuid::Uuid::new_v4());
+        
         Ok(Self {
             policy,
             current_user,
+            session_id,
         })
     }
 
@@ -149,21 +155,54 @@ impl PolicyEnforcer {
         operation: FileOperation,
         path: &Path,
     ) -> Result<()> {
+        // Create correlation ID for this authorization check
+        let correlation_id = format!("auth_{}_{}", tool, uuid::Uuid::new_v4());
+        
         // Check user restrictions
         if let Some(restrictions) = self.policy.user_restrictions.get(&self.current_user) {
             if !restrictions.allowed_tools.contains(tool) {
-                return Err(anyhow!("User is not allowed to use tool: {}", tool));
+                let error_msg = format!("User is not allowed to use tool: {}", tool);
+                
+                // Log authorization event for denied tool access
+                audit::log_authorization_event(
+                    &self.current_user,
+                    tool,
+                    "use_tool",
+                    false, // denied
+                    Some(&error_msg),
+                )?;
+                
+                return Err(anyhow!(error_msg));
             }
             
             if !restrictions.allowed_operations.contains(&operation) {
-                return Err(anyhow!("User is not allowed to perform operation: {:?}", operation));
+                let error_msg = format!("User is not allowed to perform operation: {:?}", operation);
+                
+                // Log authorization event for denied operation
+                audit::log_authorization_event(
+                    &self.current_user,
+                    &path.to_string_lossy(),
+                    &format!("{:?}", operation),
+                    false, // denied
+                    Some(&error_msg),
+                )?;
+                
+                return Err(anyhow!(error_msg));
             }
         }
 
         // Check tool policy
         if let Some(tool_policy) = self.policy.tool_policies.get(tool) {
             if !tool_policy.allowed_operations.contains(&operation) {
-                return Err(anyhow!("Tool is not allowed to perform operation: {:?}", operation));
+                let error_msg = format!("Tool is not allowed to perform operation: {:?}", operation);
+                
+                // Log security violation
+                audit::log_security_violation(
+                    "tool_policy_violation",
+                    &error_msg,
+                )?;
+                
+                return Err(anyhow!(error_msg));
             }
         }
 
@@ -171,7 +210,15 @@ impl PolicyEnforcer {
         if self.policy.file_policies.restricted_paths.iter().any(|restricted| {
             path.starts_with(restricted)
         }) {
-            return Err(anyhow!("Path is restricted: {}", path.display()));
+            let error_msg = format!("Path is restricted: {}", path.display());
+            
+            // Log security violation for path restriction
+            audit::log_security_violation(
+                "restricted_path_access",
+                &error_msg,
+            )?;
+            
+            return Err(anyhow!(error_msg));
         }
 
         // Check path-specific permissions
@@ -179,31 +226,209 @@ impl PolicyEnforcer {
             match operation {
                 FileOperation::Read => {
                     if !path_permissions.contains(&Permission::Read) {
-                        return Err(anyhow!("Read permission denied for path: {}", path.display()));
+                        let error_msg = format!("Read permission denied for path: {}", path.display());
+                        
+                        // Log authorization event with error severity
+                        audit::log_authorization_event(
+                            &self.current_user,
+                            &path.to_string_lossy(),
+                            "read",
+                            false, // denied
+                            Some(&error_msg),
+                        )?;
+                        
+                        return Err(anyhow!(error_msg));
                     }
                 }
                 FileOperation::Write | FileOperation::Create => {
                     if !path_permissions.contains(&Permission::Write) {
-                        return Err(anyhow!("Write permission denied for path: {}", path.display()));
+                        let error_msg = format!("Write permission denied for path: {}", path.display());
+                        
+                        // Log authorization event with error severity
+                        audit::log_authorization_event(
+                            &self.current_user,
+                            &path.to_string_lossy(),
+                            "write",
+                            false, // denied
+                            Some(&error_msg),
+                        )?;
+                        
+                        return Err(anyhow!(error_msg));
                     }
                 }
                 _ => {
                     if !path_permissions.contains(&Permission::Execute) {
-                        return Err(anyhow!("Execute permission denied for path: {}", path.display()));
+                        let error_msg = format!("Execute permission denied for path: {}", path.display());
+                        
+                        // Log authorization event with error severity
+                        audit::log_authorization_event(
+                            &self.current_user,
+                            &path.to_string_lossy(),
+                            "execute",
+                            false, // denied
+                            Some(&error_msg),
+                        )?;
+                        
+                        return Err(anyhow!(error_msg));
                     }
                 }
             }
         }
 
-        // Log the allowed operation
+        // Log the allowed operation using both traditional and new enhanced audit logging
         audit::log_file_access(
             &path.to_path_buf(),
             &format!("{:?}", operation),
+        )?;
+        
+        // Also log as an authorization event with info severity for successful operations
+        audit::log_authorization_event(
+            &self.current_user,
+            &path.to_string_lossy(),
+            &format!("{:?}", operation),
+            true, // allowed
+            None,
         )?;
 
         Ok(())
     }
 
+    /// Check if resources are within limits
+    pub fn check_resource_usage(
+        &self, 
+        process_id: u32,
+        memory_usage: u64,
+        cpu_usage: u32,
+        io_rate: u32,
+        execution_time: u64,
+    ) -> Result<()> {
+        // Get global resource limits
+        let global_limits = &self.policy.global.resource_limits;
+        
+        // Check memory usage
+        if memory_usage > global_limits.max_memory {
+            let action = if memory_usage > global_limits.max_memory * 2 {
+                "process_terminated"
+            } else {
+                "warning_issued"
+            };
+            
+            // Log resource event
+            audit::log_resource_event(
+                "memory",
+                process_id,
+                global_limits.max_memory,
+                memory_usage,
+                action,
+            )?;
+            
+            if memory_usage > global_limits.max_memory * 2 {
+                return Err(anyhow!("Memory usage exceeded critical threshold: {} MB", memory_usage));
+            }
+        }
+        
+        // Check CPU usage
+        if cpu_usage > global_limits.max_cpu {
+            let action = if cpu_usage > global_limits.max_cpu * 2 {
+                "process_throttled"
+            } else {
+                "warning_issued"
+            };
+            
+            // Log resource event
+            audit::log_resource_event(
+                "cpu",
+                process_id,
+                global_limits.max_cpu as u64,
+                cpu_usage as u64,
+                action,
+            )?;
+            
+            if cpu_usage > global_limits.max_cpu * 2 {
+                return Err(anyhow!("CPU usage exceeded critical threshold: {}%", cpu_usage));
+            }
+        }
+        
+        // Check I/O rate
+        if io_rate > global_limits.max_io_rate {
+            let action = if io_rate > global_limits.max_io_rate * 2 {
+                "io_limited"
+            } else {
+                "warning_issued"
+            };
+            
+            // Log resource event
+            audit::log_resource_event(
+                "io_rate",
+                process_id,
+                global_limits.max_io_rate as u64,
+                io_rate as u64,
+                action,
+            )?;
+            
+            if io_rate > global_limits.max_io_rate * 2 {
+                return Err(anyhow!("I/O rate exceeded critical threshold: {} MB/s", io_rate));
+            }
+        }
+        
+        // Check execution time
+        if execution_time > global_limits.max_execution_time {
+            let action = if execution_time > global_limits.max_execution_time * 2 {
+                "process_terminated"
+            } else {
+                "warning_issued"
+            };
+            
+            // Log resource event
+            audit::log_resource_event(
+                "execution_time",
+                process_id,
+                global_limits.max_execution_time,
+                execution_time,
+                action,
+            )?;
+            
+            if execution_time > global_limits.max_execution_time * 2 {
+                return Err(anyhow!("Execution time exceeded critical threshold: {} seconds", execution_time));
+            }
+        }
+        
+        Ok(())
+    }
+    
+    /// Verify configuration against policy
+    pub fn verify_configuration(&self, config_path: &PathBuf, config_content: &str) -> Result<()> {
+        // In a real implementation, this would perform detailed validation
+        // based on configuration schema and security policy
+        
+        // For demonstration purposes, we'll do a simple validation
+        let validation_status = !config_content.contains("allow_all") && 
+                               !config_content.contains("disable_security");
+        
+        let issues = if !validation_status {
+            Some(vec![
+                "Configuration contains insecure settings".to_string(),
+                "Security controls are disabled".to_string(),
+            ])
+        } else {
+            None
+        };
+        
+        // Log configuration validation event
+        audit::log_configuration_event(
+            config_path,
+            validation_status,
+            None, // No detailed changes tracking in this example
+            issues,
+        )?;
+        
+        if !validation_status {
+            return Err(anyhow!("Configuration failed security validation"));
+        }
+        
+        Ok(())
+    }
+    
     /// Get security configuration for a tool
     pub fn get_tool_security_config(&self, tool: &str) -> SecurityConfig {
         let mut config = SecurityConfig::default();

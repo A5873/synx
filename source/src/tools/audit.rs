@@ -1,6 +1,7 @@
 use std::path::PathBuf;
-use std::sync::Mutex;
+use std::sync::{Mutex, mpsc};
 use std::time::{SystemTime, UNIX_EPOCH};
+use std::thread;
 use anyhow::{Result, Context};
 use serde::{Serialize, Deserialize};
 use log::{debug, info, warn, error};
@@ -24,6 +25,14 @@ pub struct AuditConfig {
     pub sign_entries: bool,
     /// Events to audit
     pub audit_events: Vec<AuditEventType>,
+    /// Minimum severity level to log
+    pub min_severity: EventSeverity,
+    /// Whether to enable real-time alerts for critical events
+    pub enable_alerts: bool,
+    /// Alert destination (e.g., "syslog", "email", "webhook")
+    pub alert_destination: Option<String>,
+    /// Alert configuration (JSON string)
+    pub alert_config: Option<String>,
 }
 
 impl Default for AuditConfig {
@@ -38,7 +47,15 @@ impl Default for AuditConfig {
                 AuditEventType::ConfigChange,
                 AuditEventType::SecurityViolation,
                 AuditEventType::FileAccess,
+                AuditEventType::ValidationEvent,
+                AuditEventType::ResourceEvent,
+                AuditEventType::AuthorizationEvent,
+                AuditEventType::ConfigurationEvent,
             ],
+            min_severity: EventSeverity::Info,
+            enable_alerts: false,
+            alert_destination: None,
+            alert_config: None,
         }
     }
 }
@@ -51,6 +68,11 @@ pub enum AuditEventType {
     FileAccess,
     UserAction,
     SystemEvent,
+    // New event types for comprehensive coverage
+    ValidationEvent,
+    ResourceEvent,
+    AuthorizationEvent,
+    ConfigurationEvent,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -67,6 +89,30 @@ pub struct AuditEvent {
     context: serde_json::Value,
     /// Cryptographic signature (if enabled)
     signature: Option<String>,
+    /// Severity level of the event
+    severity: EventSeverity,
+    /// Correlation ID for event tracking
+    correlation_id: Option<String>,
+    /// Source component that generated the event
+    source: String,
+    /// Session or transaction ID
+    session_id: Option<String>,
+}
+
+/// Severity levels for audit events
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+pub enum EventSeverity {
+    Debug,
+    Info,
+    Warning,
+    Error,
+    Critical,
+}
+
+impl Default for EventSeverity {
+    fn default() -> Self {
+        EventSeverity::Info
+    }
 }
 
 impl AuditEvent {
@@ -89,7 +135,41 @@ impl AuditEvent {
             description,
             context,
             signature: None,
+            severity: EventSeverity::Info,
+            correlation_id: None,
+            source: "synx".to_string(),
+            session_id: None,
         }
+    }
+    
+    /// Create a new audit event with specified severity
+    pub fn with_severity(
+        event_type: AuditEventType,
+        description: String,
+        context: serde_json::Value,
+        severity: EventSeverity,
+    ) -> Self {
+        let mut event = Self::new(event_type, description, context);
+        event.severity = severity;
+        event
+    }
+    
+    /// Set the correlation ID for event tracking
+    pub fn with_correlation_id(mut self, correlation_id: String) -> Self {
+        self.correlation_id = Some(correlation_id);
+        self
+    }
+    
+    /// Set the source component
+    pub fn with_source(mut self, source: String) -> Self {
+        self.source = source;
+        self
+    }
+    
+    /// Set the session ID
+    pub fn with_session_id(mut self, session_id: String) -> Self {
+        self.session_id = Some(session_id);
+        self
     }
 
     /// Sign the event data
@@ -125,9 +205,15 @@ impl AuditEvent {
     }
 }
 
+struct AlertSender {
+    enabled: bool,
+    tx: Option<mpsc::Sender<AuditEvent>>,
+}
+
 pub struct AuditLogger {
     config: AuditConfig,
     signing_key: Vec<u8>,
+    alert_sender: AlertSender,
 }
 
 impl AuditLogger {
@@ -146,27 +232,93 @@ impl AuditLogger {
         getrandom::getrandom(&mut signing_key)
             .context("Failed to generate signing key")?;
         
+        // Set up alert channel if enabled
+        let alert_sender = if config.enable_alerts {
+            let (tx, rx) = mpsc::channel();
+            
+            // Start the alert handler thread
+            let alert_config = config.alert_config.clone();
+            let alert_destination = config.alert_destination.clone();
+            
+            thread::spawn(move || {
+                alert_handler_loop(rx, alert_destination, alert_config);
+            });
+            
+            AlertSender {
+                enabled: true,
+                tx: Some(tx),
+            }
+        } else {
+            AlertSender {
+                enabled: false,
+                tx: None,
+            }
+        };
+        
         Ok(Self {
             config,
             signing_key,
+            alert_sender,
         })
     }
 
     /// Configure the audit logger
-    pub fn configure(&mut self, config: AuditConfig) {
+    pub fn configure(&mut self, config: AuditConfig) -> Result<()> {
+        // Reconfigure alert system if alert settings changed
+        if self.config.enable_alerts != config.enable_alerts ||
+           self.config.alert_destination != config.alert_destination ||
+           self.config.alert_config != config.alert_config {
+            
+            // If alerts are now enabled but weren't before
+            if config.enable_alerts && !self.config.enable_alerts {
+                let (tx, rx) = mpsc::channel();
+                
+                // Start the alert handler thread
+                let alert_config = config.alert_config.clone();
+                let alert_destination = config.alert_destination.clone();
+                
+                thread::spawn(move || {
+                    alert_handler_loop(rx, alert_destination, alert_config);
+                });
+                
+                self.alert_sender = AlertSender {
+                    enabled: true,
+                    tx: Some(tx),
+                };
+            } else if !config.enable_alerts && self.config.enable_alerts {
+                // Disable alerts
+                self.alert_sender = AlertSender {
+                    enabled: false,
+                    tx: None,
+                };
+            }
+        }
+        
         self.config = config;
+        Ok(())
     }
 
     /// Log an audit event
     pub fn log_event(&self, event: &mut AuditEvent) -> Result<()> {
-        // Check if we should audit this event type
-        if !self.config.audit_events.contains(&event.event_type) {
+        // Check if we should audit this event type and severity
+        if !self.config.audit_events.contains(&event.event_type) || 
+           event.severity < self.config.min_severity {
             return Ok(());
         }
         
         // Sign the event if enabled
         if self.config.sign_entries {
             event.sign(&self.signing_key);
+        }
+        
+        // Handle critical events with real-time alerts if enabled
+        if self.alert_sender.enabled && 
+          (event.severity == EventSeverity::Critical || event.severity == EventSeverity::Error) {
+            if let Some(tx) = &self.alert_sender.tx {
+                if let Err(e) = tx.send(event.clone()) {
+                    warn!("Failed to send alert: {}", e);
+                }
+            }
         }
         
         // Serialize the event
@@ -190,7 +342,6 @@ impl AuditLogger {
             .context("Failed to write audit event")?;
         
         Ok(())
-    }
 
     /// Rotate log files if the current one exceeds the size limit
     fn rotate_logs_if_needed(&self) -> Result<()> {
@@ -250,6 +401,81 @@ impl AuditLogger {
         
         Ok(true)
     }
+}
+
+/// Alert handler loop that processes events from the alert channel
+fn alert_handler_loop(
+    rx: mpsc::Receiver<AuditEvent>,
+    destination: Option<String>,
+    config: Option<String>,
+) {
+    debug!("Starting alert handler loop");
+    
+    let alert_config = match config.and_then(|c| serde_json::from_str::<serde_json::Value>(&c).ok()) {
+        Some(cfg) => cfg,
+        None => serde_json::json!({})
+    };
+    
+    for event in rx {
+        match &destination {
+            Some(dest) if dest == "syslog" => {
+                send_syslog_alert(&event);
+            },
+            Some(dest) if dest == "email" => {
+                send_email_alert(&event, &alert_config);
+            },
+            Some(dest) if dest == "webhook" => {
+                send_webhook_alert(&event, &alert_config);
+            },
+            _ => {
+                // Default to console logging if no destination is specified
+                let severity_str = match event.severity {
+                    EventSeverity::Critical => "CRITICAL",
+                    EventSeverity::Error => "ERROR",
+                    _ => "ALERT",
+                };
+                
+                // Just log the alert to stderr
+                eprintln!("[{}] ALERT: {} - {}", 
+                    severity_str, 
+                    event.event_type, 
+                    event.description
+                );
+            }
+        }
+    }
+}
+
+/// Send an alert to syslog
+fn send_syslog_alert(event: &AuditEvent) {
+    // In a real implementation, this would use a syslog crate
+    warn!("SECURITY ALERT: {} - {}", event.event_type, event.description);
+}
+
+/// Send an email alert
+fn send_email_alert(event: &AuditEvent, config: &serde_json::Value) {
+    // Extract email configuration
+    let recipient = config.get("email_recipient")
+        .and_then(|v| v.as_str())
+        .unwrap_or("admin@example.com");
+        
+    // In a real implementation, this would use an email crate
+    info!("Would send email alert to {}: {} - {}", 
+        recipient, 
+        event.event_type, 
+        event.description
+    );
+}
+
+/// Send a webhook alert
+fn send_webhook_alert(event: &AuditEvent, config: &serde_json::Value) {
+    // Extract webhook configuration
+    let url = config.get("webhook_url")
+        .and_then(|v| v.as_str())
+        .unwrap_or("https://example.com/webhook");
+        
+    // In a real implementation, this would use reqwest or similar
+    info!("Would send webhook alert to {}: {:?}", url, event);
 }
 
 /// Get the current user name
@@ -343,6 +569,140 @@ pub fn log_file_access(
         .log_event(&mut event)
 }
 
+/// Log a validation event
+pub fn log_validation_event(
+    validator: &str,
+    file_path: &PathBuf,
+    status: bool,
+    details: Option<&str>,
+    severity: EventSeverity,
+) -> Result<()> {
+    let mut event = AuditEvent::with_severity(
+        AuditEventType::ValidationEvent,
+        format!("Validation: {}", validator),
+        serde_json::json!({
+            "file_path": file_path.to_string_lossy().to_string(),
+            "status": status,
+            "details": details.unwrap_or(""),
+        }),
+        severity,
+    );
+    
+    AUDIT_LOGGER.lock()
+        .unwrap()
+        .log_event(&mut event)
+}
+
+/// Log a resource usage event
+pub fn log_resource_event(
+    resource_type: &str,
+    process_id: u32,
+    threshold: u64,
+    actual: u64,
+    action_taken: &str,
+) -> Result<()> {
+    let severity = if actual > threshold * 2 {
+        EventSeverity::Critical
+    } else if actual > threshold {
+        EventSeverity::Warning
+    } else {
+        EventSeverity::Info
+    };
+    
+    let mut event = AuditEvent::with_severity(
+        AuditEventType::ResourceEvent,
+        format!("Resource usage: {}", resource_type),
+        serde_json::json!({
+            "process_id": process_id,
+            "threshold": threshold,
+            "actual": actual,
+            "action_taken": action_taken,
+        }),
+        severity,
+    ).with_correlation_id(format!("process_{}", process_id));
+    
+    AUDIT_LOGGER.lock()
+        .unwrap()
+        .log_event(&mut event)
+}
+
+/// Log an authorization event
+pub fn log_authorization_event(
+    subject: &str,
+    resource: &str,
+    action: &str,
+    allowed: bool,
+    reason: Option<&str>,
+) -> Result<()> {
+    // Use Critical severity for denied access, Info for allowed
+    let severity = if allowed {
+        EventSeverity::Info
+    } else {
+        EventSeverity::Error
+    };
+    
+    let mut event = AuditEvent::with_severity(
+        AuditEventType::AuthorizationEvent,
+        format!("Authorization: {} {} {}", subject, if allowed { "allowed" } else { "denied" }, action),
+        serde_json::json!({
+            "subject": subject,
+            "resource": resource,
+            "action": action,
+            "allowed": allowed,
+            "reason": reason.unwrap_or(""),
+        }),
+        severity,
+    );
+    
+    AUDIT_LOGGER.lock()
+        .unwrap()
+        .log_event(&mut event)
+}
+
+/// Log a configuration validation event
+pub fn log_configuration_event(
+    config_path: &PathBuf,
+    validation_status: bool,
+    changes: Option<serde_json::Value>,
+    issues: Option<Vec<String>>,
+) -> Result<()> {
+    let severity = if validation_status {
+        EventSeverity::Info
+    } else {
+        EventSeverity::Warning
+    };
+    
+    let context = match (changes, issues) {
+        (Some(c), Some(i)) => serde_json::json!({
+            "config_path": config_path.to_string_lossy().to_string(),
+            "changes": c,
+            "issues": i,
+        }),
+        (Some(c), None) => serde_json::json!({
+            "config_path": config_path.to_string_lossy().to_string(),
+            "changes": c,
+        }),
+        (None, Some(i)) => serde_json::json!({
+            "config_path": config_path.to_string_lossy().to_string(),
+            "issues": i,
+        }),
+        (None, None) => serde_json::json!({
+            "config_path": config_path.to_string_lossy().to_string(),
+        }),
+    };
+    
+    let mut event = AuditEvent::with_severity(
+        AuditEventType::ConfigurationEvent,
+        format!("Configuration validation: {}", if validation_status { "passed" } else { "failed" }),
+        context,
+        severity,
+    );
+    
+    AUDIT_LOGGER.lock()
+        .unwrap()
+        .log_event(&mut event)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -395,7 +755,7 @@ mod tests {
         config.max_log_size = 100; // Small size to trigger rotation
         
         let mut logger = AuditLogger::new().unwrap();
-        logger.configure(config);
+        logger.configure(config).unwrap();
         
         // Write multiple events to trigger rotation
         for i in 0..10 {
@@ -410,4 +770,78 @@ mod tests {
         // Check if rotation occurred
         assert!(log_path.with_extension("log.1").exists());
     }
+    
+    #[test]
+    fn test_event_severity() {
+        let mut event = AuditEvent::with_severity(
+            AuditEventType::SecurityViolation,
+            "Critical security breach".to_string(),
+            serde_json::json!({}),
+            EventSeverity::Critical,
+        );
+        
+        assert_eq!(event.severity, EventSeverity::Critical);
+        
+        // Create logger with minimum severity set to Error
+        let temp_dir = TempDir::new().unwrap();
+        let log_path = temp_dir.path().join("audit.log");
+        
+        let mut config = AuditConfig::default();
+        config.log_path = log_path.clone();
+        config.min_severity = EventSeverity::Error;
+        
+        let mut logger = AuditLogger::new().unwrap();
+        logger.configure(config).unwrap();
+        
+        // Critical event should be logged (above threshold)
+        assert!(logger.log_event(&mut event).is_ok());
+        
+        // Info event should not be logged (below threshold)
+        let mut info_event = AuditEvent::with_severity(
+            AuditEventType::SystemEvent,
+            "Regular info event".to_string(),
+            serde_json::json!({}),
+            EventSeverity::Info,
+        );
+        
+        // This should succeed but not actually write to the log
+        assert!(logger.log_event(&mut info_event).is_ok());
+    }
+    
+    #[test]
+    fn test_correlation_id() {
+        let event = AuditEvent::new(
+            AuditEventType::UserAction,
+            "User action test".to_string(),
+            serde_json::json!({}),
+        ).with_correlation_id("test-correlation-123".to_string());
+        
+        assert_eq!(event.correlation_id, Some("test-correlation-123".to_string()));
+    }
+    
+    #[test]
+    fn test_new_event_types() {
+        // Test ValidationEvent
+        let mut event = AuditEvent::new(
+            AuditEventType::ValidationEvent,
+            "Validation test".to_string(),
+            serde_json::json!({
+                "file_path": "/test/path.rs",
+                "status": true,
+            }),
+        );
+        
+        assert_eq!(event.event_type, AuditEventType::ValidationEvent);
+        
+        // Test ResourceEvent
+        let mut event = AuditEvent::new(
+            AuditEventType::ResourceEvent,
+            "Resource test".to_string(),
+            serde_json::json!({
+                "resource_type": "memory",
+                "process_id": 1234,
+            }),
+        );
+        
+        assert_eq!(event
 }
