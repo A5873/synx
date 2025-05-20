@@ -342,6 +342,7 @@ impl AuditLogger {
             .context("Failed to write audit event")?;
         
         Ok(())
+    }
 
     /// Rotate log files if the current one exceeds the size limit
     fn rotate_logs_if_needed(&self) -> Result<()> {
@@ -843,5 +844,6 @@ mod tests {
             }),
         );
         
-        assert_eq!(event
+        assert_eq!(event.event_type, AuditEventType::ResourceEvent);
+    }
 }

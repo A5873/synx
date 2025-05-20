@@ -32,6 +32,7 @@ lazy_static = "1.4"
 which = "5.0"
 tempfile = "3.8"
 dirs = "5.0"
+tree_magic_mini = "3.0"
 
 # Pattern matching and text processing
 regex = "1.9"
@@ -40,8 +41,13 @@ regex = "1.9"
 semver = "1.0"
 
 # Security features
-seccomp-rs = "0.2"
+seccompiler = "0.3"
 libc = "0.2"
+nix = "0.27"
+rlimit = "0.10"
+
+# Terminal output
+termcolor = "1.4"
 
 # TUI features
 tui = { version = "0.19", default-features = false, features = ["crossterm", "serde"] }
@@ -61,7 +67,7 @@ tree-sitter-java = "0.20"
 syntect = "5.0"
 
 [target.'cfg(windows)'.dependencies]
-windows-security = "0.1"
+windows = { version = "0.48", features = ["Win32_Security"] }
 
 [dev-dependencies]
 tempfile = "3.8"
@@ -82,29 +88,6 @@ cpp = []
 java = []
 csharp = []
 go = []
-
-[profile.release]
-# Enable link-time optimization
-lto = true
-# Enable debug information
-debug = true
-# Optimize for size
-opt-level = "s"
-# Enable stack unwinding
-panic = "unwind"
-
-[profile.dev]
-# Enable debug assertions
-debug-assertions = true
-# Enable overflow checks
-overflow-checks = true
-# Enable debug information
-debug = true
-
-[workspace]
-members = [
-    "source",
-]
 
 [[bin]]
 name = "synx"

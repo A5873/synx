@@ -5,9 +5,26 @@
 
 mod memory;
 mod perf;
+mod traits;
 
 pub use memory::MemoryAnalyzer;
 pub use perf::PerformanceAnalyzer;
+
+// Re-export types from traits module
+pub use traits::{
+    Analyzer as AnalyzerTrait,
+    AnalysisOptions,
+    AnalysisResult as TraitsAnalysisResult,
+    AnalysisDetails,
+    AnalysisIssue as TraitsAnalysisIssue,
+    IssueSeverity,
+    AnalysisLevel,
+    AnalysisType,
+    MemoryDetails,
+    PerformanceDetails,
+    MemoryLeak as TraitsMemoryLeak,
+    HotspotFunction,
+};
 
 use std::path::Path;
 use anyhow::Result;
