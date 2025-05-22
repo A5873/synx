@@ -957,7 +957,6 @@ fn validate_custom(file_path: &Path, options: &ValidationOptions, custom_config:
         Err(_) => {
             // Process completed before timeout
             match child.wait() {
-        Ok(status) => status,
                 Ok(status) => status,
                 Err(e) => {
                     if options.verbose {
@@ -1046,6 +1045,8 @@ mod tests {
         let options = ValidationOptions {
             strict: false,
             verbose: false,
+            timeout: 30,
+            config: None,
         };
         let result = validate_c(&file_path, &options).unwrap();
         assert!(result, "Valid C file should pass validation");
@@ -1057,6 +1058,8 @@ mod tests {
         let options = ValidationOptions {
             strict: false,
             verbose: false,
+            timeout: 30,
+            config: None,
         };
         let result = validate_c(&file_path, &options).unwrap();
         assert!(!result, "Invalid C file should fail validation");
@@ -1068,6 +1071,8 @@ mod tests {
         let options = ValidationOptions {
             strict: true,
             verbose: false,
+            timeout: 30,
+            config: None,
         };
         let result = validate_c(&file_path, &options).unwrap();
         assert!(result, "Valid C file should pass strict validation");
@@ -1080,6 +1085,8 @@ mod tests {
         let options = ValidationOptions {
             strict: false,
             verbose: false,
+            timeout: 30,
+            config: None,
         };
         let result = validate_csharp(&file_path, &options).unwrap();
         assert!(result, "Valid C# file should pass validation");
@@ -1091,6 +1098,8 @@ mod tests {
         let options = ValidationOptions {
             strict: false,
             verbose: false,
+            timeout: 30,
+            config: None,
         };
         let result = validate_csharp(&file_path, &options).unwrap();
         assert!(!result, "Invalid C# file should fail validation");
@@ -1103,6 +1112,8 @@ mod tests {
         let options = ValidationOptions {
             strict: false,
             verbose: false,
+            timeout: 30,
+            config: None,
         };
         let result = validate_python(&file_path, &options).unwrap();
         assert!(result, "Valid Python file should pass validation");
@@ -1114,6 +1125,8 @@ mod tests {
         let options = ValidationOptions {
             strict: false,
             verbose: false,
+            timeout: 30,
+            config: None,
         };
         let result = validate_python(&file_path, &options).unwrap();
         // Even with syntax errors, basic Python validation might pass as long as it's valid Python
@@ -1127,6 +1140,8 @@ mod tests {
         let options = ValidationOptions {
             strict: true,
             verbose: false,
+            timeout: 30,
+            config: None,
         };
         let result = validate_python(&file_path, &options).unwrap();
         // In strict mode with pylint and mypy, this should fail
@@ -1140,6 +1155,8 @@ mod tests {
         let options = ValidationOptions {
             strict: false,
             verbose: false,
+            timeout: 30,
+            config: None,
         };
         let result = validate_javascript(&file_path, &options).unwrap();
         assert!(result, "Valid JavaScript file should pass validation");
@@ -1151,6 +1168,8 @@ mod tests {
         let options = ValidationOptions {
             strict: false,
             verbose: true, // Use verbose to see the errors
+            timeout: 30,
+            config: None,
         };
         let result = validate_javascript(&file_path, &options).unwrap();
         // Basic syntax check may still pass as the JS has valid syntax but ESLint issues
@@ -1163,6 +1182,8 @@ mod tests {
         let options = ValidationOptions {
             strict: true,
             verbose: false,
+            timeout: 30,
+            config: None,
         };
         let result = validate_javascript(&file_path, &options).unwrap();
         // In strict mode with ESLint, this should fail

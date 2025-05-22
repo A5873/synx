@@ -40,12 +40,23 @@ regex = "1.9"
 # Version handling
 semver = "1.0"
 
-# Security features
-seccompiler = "0.3"
+# Common security features (cross-platform)
 libc = "0.2"
-nix = { version = "0.27", features = ["signal", "process", "user"] }
-rlimit = "0.10"
-libseccomp-rs = "0.1.0"
+
+# Unix-specific dependencies
+[target.'cfg(unix)'.dependencies]
+nix = { version = "0.27", features = ["signal", "process", "user"], optional = true }
+
+# Linux-specific security features
+[target.'cfg(target_os = "linux")'.dependencies]
+seccompiler = { version = "0.3", optional = true }
+rlimit = { version = "0.10", optional = true }
+libseccomp-rs = { version = "0.1.0", optional = true }
+
+# macOS-specific security features
+[target.'cfg(target_os = "macos")'.dependencies]
+objc = { version = "0.2", optional = true }
+core-foundation = { version = "0.9", optional = true }
 
 # Terminal output
 termcolor = "1.4"
@@ -68,7 +79,12 @@ tree-sitter-java = "0.20"
 syntect = "5.0"
 
 [target.'cfg(windows)'.dependencies]
-windows = { version = "0.48", features = ["Win32_Security"] }
+windows-sys = { version = "0.48", features = [
+    "Win32_Security", 
+    "Win32_System_Threading", 
+    "Win32_Foundation",
+    "Win32_System_JobObjects"
+], optional = true }
 
 [dev-dependencies]
 tempfile = "3.8"
@@ -76,9 +92,23 @@ assert_fs = "1.0"
 predicates = "3.0"
 
 [features]
-default = ["all-validators"]
+default = ["all-validators", "basic-security"]
 all-validators = []
 minimal = []
+
+# Security feature groups
+basic-security = []
+enhanced-security = ["platform-security"]
+platform-security = [
+    "linux-security",
+    "macos-security",
+    "windows-security"
+]
+
+# Platform-specific security features
+linux-security = ["nix", "seccompiler", "rlimit", "libseccomp-rs"]
+macos-security = ["nix", "objc", "core-foundation"]
+windows-security = ["windows-sys"]
 
 # Optional validators
 python = []

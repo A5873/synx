@@ -1595,10 +1595,10 @@ impl RustMemoryLeakDetector {
                 }),
                 severity,
                 description: format!("Memory safety issue detected: {}", error_msg),
-                location,
+                location: location.clone(),
                 suggestion: Some(suggestion),
                 analysis_type: AnalysisType::Memory,
-                locations: location.clone().map(|loc| vec![loc]).unwrap_or_default(),
+                locations: location.map(|loc| vec![loc]).unwrap_or_default(),
             });
         }
         
@@ -1731,8 +1731,9 @@ impl Analyzer for PythonMemoryAnalyzer {
         
         // Create a wrapper script for tracemalloc
         let tracemalloc_path = temp_dir.path().join("tracemalloc_wrapper.py");
-        let tracemalloc_content = self.generate_tracemalloc_wrapper(file_name, &output_dir);
-        fs::write(&tracemalloc_path, tracemalloc_content).context("Failed to write tracemalloc wrapper")?;
+        let output_dir_path = Path::new(&output_dir);
+        let tracemalloc_content = self.generate_tracemalloc_wrapper(file_name, output_dir_path)?;
+        fs::write(&tracemalloc_path, &tracemalloc_content)?;
         
         // Run both wrappers
         let mut report_files = Vec::new();
