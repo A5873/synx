@@ -26,6 +26,12 @@ use crate::analysis::{
 /// CPU Profiler using Linux perf or compatible tools
 pub struct PerfCpuProfiler;
 
+impl PerfCpuProfiler {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
 impl Analyzer for PerfCpuProfiler {
     fn name(&self) -> &str {
         "CPU Profiler (perf)"
@@ -398,10 +404,11 @@ edition = "2021"
             issues.push(AnalysisIssue {
                 title: "High CPU Usage".to_string(),
                 description: format!("CPU usage is very high at {:.1}%", perf_details.cpu_usage),
-                severity: IssueSeverity::Warning,
-                locations: Vec::new(),
+                severity: IssueSeverity::Medium,
+                location: None,
+                suggestion: Some("Consider optimizing the most CPU-intensive functions".to_string()),
                 analysis_type: AnalysisType::Performance,
-                suggested_fix: Some("Consider optimizing the most CPU-intensive functions".to_string()),
+                locations: Vec::new(),
             });
         }
         
@@ -414,10 +421,11 @@ edition = "2021"
                         issues.push(AnalysisIssue {
                             title: "High Cache Miss Rate".to_string(),
                             description: format!("Cache miss rate is {:.1}%", miss_rate),
-                            severity: IssueSeverity::Warning,
-                            locations: Vec::new(),
+                            severity: IssueSeverity::Medium,
+                            location: None,
+                            suggestion: Some("Consider improving data locality and access patterns".to_string()),
                             analysis_type: AnalysisType::Performance,
-                            suggested_fix: Some("Consider improving data locality and access patterns".to_string()),
+                            locations: Vec::new(),
                         });
                     }
                 }
@@ -433,10 +441,11 @@ edition = "2021"
                         issues.push(AnalysisIssue {
                             title: "High Branch Misprediction Rate".to_string(),
                             description: format!("Branch misprediction rate is {:.1}%", miss_rate),
-                            severity: IssueSeverity::Warning,
-                            locations: Vec::new(),
+                            severity: IssueSeverity::Medium,
+                            location: None,
+                            suggestion: Some("Consider simplifying conditional logic or implementing branch prediction hints".to_string()),
                             analysis_type: AnalysisType::Performance,
-                            suggested_fix: Some("Consider simplifying conditional logic or implementing branch prediction hints".to_string()),
+                            locations: Vec::new(),
                         });
                     }
                 }
@@ -454,10 +463,11 @@ edition = "2021"
                     issues.push(AnalysisIssue {
                         title: "Low Instructions Per Cycle".to_string(),
                         description: format!("IPC is low at {:.2}", ipc),
-                        severity: IssueSeverity::Warning,
-                        locations: Vec::new(),
+                        severity: IssueSeverity::Medium,
+                        location: None,
+                        suggestion: Some("Consider reducing memory stalls, improving parallelism, or reducing dependencies between instructions".to_string()),
                         analysis_type: AnalysisType::Performance,
-                        suggested_fix: Some("Consider reducing memory stalls, improving parallelism, or reducing dependencies between instructions".to_string()),
+                        locations: Vec::new(),
                     });
                 }
             }

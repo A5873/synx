@@ -2,6 +2,7 @@ use std::path::PathBuf;
 use std::sync::{Mutex, mpsc};
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::thread;
+use std::fmt;
 use anyhow::{Result, Context};
 use serde::{Serialize, Deserialize};
 use log::{debug, info, warn, error};
@@ -75,7 +76,24 @@ pub enum AuditEventType {
     ConfigurationEvent,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+impl fmt::Display for AuditEventType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            AuditEventType::ToolExecution => write!(f, "Tool Execution"),
+            AuditEventType::ConfigChange => write!(f, "Config Change"),
+            AuditEventType::SecurityViolation => write!(f, "Security Violation"),
+            AuditEventType::FileAccess => write!(f, "File Access"),
+            AuditEventType::UserAction => write!(f, "User Action"),
+            AuditEventType::SystemEvent => write!(f, "System Event"),
+            AuditEventType::ValidationEvent => write!(f, "Validation Event"),
+            AuditEventType::ResourceEvent => write!(f, "Resource Event"),
+            AuditEventType::AuthorizationEvent => write!(f, "Authorization Event"),
+            AuditEventType::ConfigurationEvent => write!(f, "Configuration Event"),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct AuditEvent {
     /// Timestamp of the event
     timestamp: u64,
@@ -182,7 +200,16 @@ impl AuditEvent {
             &self.context
         )).unwrap_or_default();
         
-        let signature = blake3::keyed_hash(key, &event_data);
+        // Use regular hash if key is not the expected size
+        let signature = if key.len() == blake3::KEY_LEN {
+            // Convert slice to array reference
+            let key_array: &[u8; blake3::KEY_LEN] = key.try_into().unwrap_or(&[0; blake3::KEY_LEN]);
+            blake3::keyed_hash(key_array, &event_data)
+        } else {
+            // Fall back to regular hash if key size is incorrect
+            blake3::hash(&event_data)
+        };
+        
         self.signature = Some(signature.to_hex().to_string());
     }
 
@@ -197,8 +224,17 @@ impl AuditEvent {
                 &self.context
             )).unwrap_or_default();
             
-            let expected = blake3::keyed_hash(key, &event_data).to_hex().to_string();
-            sig == &expected
+            // Use regular hash if key is not the expected size
+            let expected = if key.len() == blake3::KEY_LEN {
+                // Convert slice to array reference
+                let key_array: &[u8; blake3::KEY_LEN] = key.try_into().unwrap_or(&[0; blake3::KEY_LEN]);
+                blake3::keyed_hash(key_array, &event_data)
+            } else {
+                // Fall back to regular hash if key size is incorrect
+                blake3::hash(&event_data)
+            };
+            
+            sig == &expected.to_hex().to_string()
         } else {
             false
         }
@@ -230,7 +266,7 @@ impl AuditLogger {
         // Generate a random signing key
         let mut signing_key = vec![0u8; 32];
         getrandom::getrandom(&mut signing_key)
-            .context("Failed to generate signing key")?;
+            .map_err(|e| anyhow::anyhow!("Failed to generate signing key: {}", e))?;
         
         // Set up alert channel if enabled
         let alert_sender = if config.enable_alerts {
@@ -480,7 +516,8 @@ fn send_webhook_alert(event: &AuditEvent, config: &serde_json::Value) {
 }
 
 /// Get the current user name
-fn get_current_user() -> String {
+/// Get the current user name
+pub(crate) fn get_current_user() -> String {
     #[cfg(unix)]
     {
         use std::env;

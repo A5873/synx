@@ -2,7 +2,6 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio, Child};
 use std::time::Duration;
 use std::collections::HashSet;
-use std::str::FromStr;
 use anyhow::{Result, anyhow, Context};
 use regex::Regex;
 use log::{debug, warn, error};
@@ -176,23 +175,18 @@ impl SecureCommand {
         {
             use std::os::unix::process::CommandExt;
             
-            // Clone the config to move it into the closure
-            let config = self.config.clone();
-            
-            unsafe {
-                command.pre_exec(move || {
-                    // Set up seccomp filters
-                    if let Err(e) = setup_seccomp_filters(&config) {
-                        error!("Failed to set up seccomp filters: {}", e);
-                        return Err(std::io::Error::new(
-                            std::io::ErrorKind::Other,
-                            "Failed to set up security filters"
-                        ));
-                    }
-                    
-                    Ok(())
-                });
-            }
+            command.pre_exec(|| {
+                // Set up seccomp filters
+                if let Err(e) = setup_seccomp_filters(&self.config) {
+                    error!("Failed to set up seccomp filters: {}", e);
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::Other,
+                        "Failed to set up security filters"
+                    ));
+                }
+                
+                Ok(())
+            });
         }
 
         Ok(command)
@@ -323,206 +317,33 @@ fn sanitize_env_value(value: &str) -> Result<String> {
 
 #[cfg(target_os = "linux")]
 fn setup_seccomp_filters(config: &SecurityConfig) -> Result<()> {
-    use seccompiler::{
-        SeccompAction,
-        SeccompCondition,
-        SeccompRule,
-        SeccompFilter,
-        SeccompCmpOp,
-        SeccompCmpArgLen,
-        TargetArch,
-    };
-    use std::collections::BTreeMap;
+    use seccomp_rs::{SeccompFilter, Action, Comparison, Syscall};
     
-    // Define the error action for blocked syscalls
-    let block_action = SeccompAction::Errno(libc::EACCES as u32);
-    let default_action = SeccompAction::Allow;
-    
-    // Create filter rules map
-    let mut rules = BTreeMap::new();
-    
+    let mut filter = SeccompFilter::new(Action::Allow)?;
+
     // Block network access if not allowed
     if !config.allow_network {
-        // Socket syscall - block AF_INET and AF_INET6 sockets
-        let socket_rules = vec![
-            // Block IPv4 sockets
-            SeccompRule::new(
-                vec![SeccompCondition::new(
-                    0, // Arg index
-                    SeccompCmpArgLen::Dword,
-                    SeccompCmpOp::Eq, 
-                    libc::AF_INET as u64,
-                )?],
-                block_action,
-            )?,
-            // Block IPv6 sockets
-            SeccompRule::new(
-                vec![SeccompCondition::new(
-                    0, // Arg index
-                    SeccompCmpArgLen::Dword,
-                    SeccompCmpOp::Eq, 
-                    libc::AF_INET6 as u64,
-                )?],
-                block_action,
-            )?,
-        ];
-        rules.insert(libc::SYS_socket as i64, socket_rules);
-        
-        // Connect syscall - block all network connections
-        let connect_rules = vec![
-            SeccompRule::new(
-                vec![], // No conditions means block all calls to this syscall
-                block_action,
-            )?
-        ];
-        rules.insert(libc::SYS_connect as i64, connect_rules);
-        
-        // Accept syscall - block all incoming connections
-        let accept_rules = vec![
-            SeccompRule::new(
-                vec![], 
-                block_action,
-            )?
-        ];
-        rules.insert(libc::SYS_accept as i64, accept_rules);
-        
-        // Also block accept4 which is a variant of accept
-        let accept4_rules = vec![
-            SeccompRule::new(
-                vec![], 
-                block_action,
-            )?
-        ];
-        rules.insert(libc::SYS_accept4 as i64, accept4_rules);
+        filter.add_rule(Syscall::socket, Action::Errno(1))?;
+        filter.add_rule(Syscall::connect, Action::Errno(1))?;
+        filter.add_rule(Syscall::accept, Action::Errno(1))?;
     }
-    
+
     // Block file writes if not allowed
     if !config.restrictions.allow_file_writes {
-        // Open syscall - block open with write flags
-        let open_rules = vec![
-            SeccompRule::new(
-                vec![SeccompCondition::new(
-                    1, // Arg index (flags is the second argument)
-                    SeccompCmpArgLen::Dword,
-                    SeccompCmpOp::MaskedEq(libc::O_WRONLY as u64 | libc::O_RDWR as u64),
-                    libc::O_WRONLY as u64,
-                )?],
-                block_action,
-            )?,
-            SeccompRule::new(
-                vec![SeccompCondition::new(
-                    1, // Arg index (flags is the second argument)
-                    SeccompCmpArgLen::Dword,
-                    SeccompCmpOp::MaskedEq(libc::O_WRONLY as u64 | libc::O_RDWR as u64),
-                    libc::O_RDWR as u64,
-                )?],
-                block_action,
-            )?,
-        ];
-        rules.insert(libc::SYS_open as i64, open_rules);
-        
-        // Openat syscall - block openat with write flags
-        let openat_rules = vec![
-            SeccompRule::new(
-                vec![SeccompCondition::new(
-                    2, // Arg index (flags is the third argument)
-                    SeccompCmpArgLen::Dword,
-                    SeccompCmpOp::MaskedEq(libc::O_WRONLY as u64 | libc::O_RDWR as u64),
-                    libc::O_WRONLY as u64,
-                )?],
-                block_action,
-            )?,
-            SeccompRule::new(
-                vec![SeccompCondition::new(
-                    2, // Arg index (flags is the third argument)
-                    SeccompCmpArgLen::Dword,
-                    SeccompCmpOp::MaskedEq(libc::O_WRONLY as u64 | libc::O_RDWR as u64),
-                    libc::O_RDWR as u64,
-                )?],
-                block_action,
-            )?,
-        ];
-        rules.insert(libc::SYS_openat as i64, openat_rules);
-        
-        // Block file creation syscall
-        let creat_rules = vec![
-            SeccompRule::new(
-                vec![],
-                block_action,
-            )?
-        ];
-        rules.insert(libc::SYS_creat as i64, creat_rules);
-        
-        // Block rename syscall
-        let rename_rules = vec![
-            SeccompRule::new(
-                vec![],
-                block_action,
-            )?
-        ];
-        rules.insert(libc::SYS_rename as i64, rename_rules);
-        
-        // Block unlink syscall
-        let unlink_rules = vec![
-            SeccompRule::new(
-                vec![],
-                block_action,
-            )?
-        ];
-        rules.insert(libc::SYS_unlink as i64, unlink_rules);
+        filter.add_rule(Syscall::open, Action::Errno(1))?;
+        filter.add_rule(Syscall::creat, Action::Errno(1))?;
+        filter.add_rule(Syscall::rename, Action::Errno(1))?;
+        filter.add_rule(Syscall::unlink, Action::Errno(1))?;
     }
-    
+
     // Block subprocess creation if not allowed
     if !config.restrictions.allow_subprocesses {
-        // Fork syscall
-        let fork_rules = vec![
-            SeccompRule::new(
-                vec![],
-                block_action,
-            )?
-        ];
-        rules.insert(libc::SYS_fork as i64, fork_rules);
-        
-        // Vfork syscall
-        let vfork_rules = vec![
-            SeccompRule::new(
-                vec![],
-                block_action,
-            )?
-        ];
-        rules.insert(libc::SYS_vfork as i64, vfork_rules);
-        
-        // Clone syscall
-        let clone_rules = vec![
-            SeccompRule::new(
-                vec![],
-                block_action,
-            )?
-        ];
-        rules.insert(libc::SYS_clone as i64, clone_rules);
-        
-        // Execve syscall
-        let execve_rules = vec![
-            SeccompRule::new(
-                vec![],
-                block_action,
-            )?
-        ];
-        rules.insert(libc::SYS_execve as i64, execve_rules);
+        filter.add_rule(Syscall::fork, Action::Errno(1))?;
+        filter.add_rule(Syscall::vfork, Action::Errno(1))?;
+        filter.add_rule(Syscall::clone, Action::Errno(1))?;
     }
-    
-    // Create and apply the filter
-    let filter = SeccompFilter::new(
-        rules,
-        default_action,
-        TargetArch::x86_64,
-    )?;
-    
-    // Apply the seccomp filter
-    unsafe {
-        filter.apply()?;
-    }
-    
+
+    filter.load()?;
     Ok(())
 }
 

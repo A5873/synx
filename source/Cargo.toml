@@ -43,8 +43,9 @@ semver = "1.0"
 # Security features
 seccompiler = "0.3"
 libc = "0.2"
-nix = "0.27"
+nix = { version = "0.27", features = ["signal", "process", "user"] }
 rlimit = "0.10"
+libseccomp-rs = "0.1.0"
 
 # Terminal output
 termcolor = "1.4"

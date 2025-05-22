@@ -368,8 +368,16 @@ fn is_likely_svelte(content: &str) -> bool {
 /// Detect file type based on extension, content, and custom mappings
 pub fn detect_file_type(path: &Path) -> Result<FileType> {
     // Load config for custom mappings
-    let config = crate::config::Config::load(None)
-        .context("Failed to load configuration for file type detection")?;
+    let config = crate::config::Config::new(
+        None,  // strict
+        None,  // verbose
+        None,  // watch
+        None,  // watch_interval
+        None,  // watch_directory
+        None,  // explicit_config_path
+    )?;
+    
+    // No need for .context() since it's not implemented on Config
     // First try to detect by extension
     if let Some(extension) = path.extension() {
         let ext = extension.to_string_lossy().to_lowercase();

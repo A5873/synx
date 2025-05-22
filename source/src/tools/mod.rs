@@ -12,12 +12,21 @@ mod secure;
 mod paths;
 mod verify;
 mod audit;
-mod policy;
+pub mod policy;
 
 pub use secure::{SecureCommand, SecurityConfig};
 pub use paths::{SecurePath, PathSecurityConfig};
 pub use verify::{VerifiedTool, ToolVerificationConfig};
-pub use policy::{SecurityPolicy, PolicyEnforcer};
+pub use policy::{
+    SecurityPolicy, 
+    PolicyEnforcer,
+    GlobalSecuritySettings,
+    ResourceLimits,
+    FileOperationPolicy,
+    Permission,
+    FileSecurityChecks,
+    FileOperation,
+};
 pub use audit::AuditConfig;
 
 use std::path::{Path, PathBuf};
@@ -46,11 +55,11 @@ impl ToolManager {
         args: &[String],
         working_dir: Option<&Path>,
     ) -> Result<std::process::Output> {
-        // Verify and get tool (from cache or new)
-        let tool = self.get_verified_tool(name)?;
-        
-        // Get security configurations
+        // Get security configurations first to avoid borrowing conflict
         let security_config = self.policy_enforcer.get_tool_security_config(name);
+        
+        // Now verify and get tool (from cache or new)
+        let tool = self.get_verified_tool(name)?;
         
         // Create secure command
         let mut cmd = tool.create_command()?
