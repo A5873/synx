@@ -1,24 +1,177 @@
 # Synx Configuration Example
+# This file demonstrates all available configuration options for Synx
 
+# General settings
 [general]
+# Whether to use strict mode for validation (enforces higher standards)
 strict = false
+# Enable verbose output for detailed validation information
 verbose = true
+# Enable file watching for live validation during development
+watch = true
+# Check every 5 seconds when watching for changes
 watch_interval = 5
+# Timeout for individual validator operations (in seconds)
+timeout = 30
+# Enable validation result caching to improve performance
+enable_cache = true
+# Cache duration in minutes
+cache_duration = 15
 
+# File mappings for special file types
+[file_mappings]
+"Dockerfile" = "dockerfile"
+"Jenkinsfile" = "groovy"
+"Makefile" = "makefile"
+".synxrc" = "toml"
+"Cargo.toml" = "toml"
+
+# Language-specific validator settings
+# Rust validator settings
 [validators.rust]
+# Rust edition to use
 edition = "2021"
+# Enable clippy for additional linting
 clippy = true
-clippy_flags = ["--deny=warnings"]
+# Configure clippy with stricter settings
+clippy_flags = [
+    "--deny=warnings",
+    "--deny=clippy::all",
+    "--deny=clippy::pedantic",
+    "--allow=clippy::module_name_repetitions",
+]
+# Enable custom rules
+custom_rules = [
+    "unused_variable",
+    "unused_import",
+]
 
+# Python validator settings
 [validators.python]
+# Enable strict type checking with mypy
 mypy_strict = true
+# Set pylint threshold (9.0/10)
 pylint_threshold = 9.0
+# Rules to ignore
 ignore_rules = ["C0111"]
+# Format with black
+formatter = "black"
+# Black line length
+line_length = 88
 
+# JavaScript validator settings
 [validators.javascript]
+# Use ESLint config
 eslint_config = "./custom_eslint.json"
+# Format with prettier
+formatter = "prettier"
+# Node version
 node_version = "18"
 
+# TypeScript validator settings
+[validators.typescript]
+# TypeScript config
+tsconfig = "./tsconfig.json"
+# Format with prettier
+formatter = "prettier"
+
+# Go validator settings
 [validators.go]
+# Run tests as part of validation
 test = true
+# Use golangci-lint with all checks enabled
 lint_flags = ["--enable-all"]
+
+# C/C++ validator settings
+[validators.cpp]
+# C++ standard to use
+standard = "c++17"
+# Additional include paths
+include_paths = ["/usr/include", "./include"]
+
+[validators.c]
+# C standard to use
+standard = "c11"
+# Enable memory leak checking
+check_memory = true
+
+# Security settings
+[security]
+# Enable sandbox for secure operation
+enable_sandbox = true
+# Verify checksums of configuration files
+verify_checksums = true
+# Auto-update checksums when files change
+auto_update_checksums = false
+# Enable audit logging
+enable_audit = false
+# Audit log file location
+audit_log = "./logs/audit.log"
+# Maximum file size for processing (5MB)
+max_file_size = 5242880
+# Set allowed paths for file operations
+allowed_dirs = [
+    "${PWD}/src",
+    "${PWD}/tests",
+]
+
+# Resource limits
+[security.resource_limits]
+# Maximum memory usage per validator (MB)
+max_memory = 256
+# Maximum CPU usage per validator (%)
+max_cpu = 30
+# Maximum I/O rate (MB/s)
+max_io_rate = 5
+# Maximum execution time per validator (seconds)
+max_execution_time = 15
+
+# TUI settings for interactive mode
+[tui]
+# Start with examples shown
+show_examples = true
+# Use side-by-side mode for examples
+side_by_side = true
+# Show line numbers
+show_line_numbers = true
+# Use syntax highlighting
+syntax_highlighting = true
+# Enable keyboard shortcuts help
+show_shortcuts = true
+# Default starting tab (issues, syntax_tree, actions, explanation)
+default_tab = "issues"
+# Maximum suggestions to show
+max_suggestions = 3
+
+# TUI color scheme
+[tui.colors]
+# Base colors
+background = "default"
+foreground = "white"
+# UI elements
+border = "blue"
+selected = "yellow"
+# Issue severities
+error = "red"
+warning = "yellow"
+info = "blue"
+# Code display
+line_numbers = "dark_gray"
+keywords = "cyan"
+strings = "green"
+comments = "dark_gray"
+types = "magenta"
+# Correct/incorrect examples
+correct = "green"
+incorrect = "red"
+
+# Custom validator example
+[validators.custom.xml_validator]
+# Command to run
+command = "xmllint"
+# Default arguments
+args = ["--noout"]
+# Additional arguments for strict mode
+strict_args = ["--dtdvalid", "schema.dtd"]
+# Pattern to look for in the output to determine success
+success_pattern = "^validates"
