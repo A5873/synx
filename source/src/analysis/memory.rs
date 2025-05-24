@@ -10,15 +10,12 @@
 
 use std::path::Path;
 use std::process::Command;
-use std::collections::HashMap;
+use std::fs;
 use std::time::{Duration, Instant};
-use std::io::{self, Write};
-use std::fs::{self, File};
 use tempfile::TempDir;
 use anyhow::{Result, Context, anyhow};
 
 use crate::detectors::FileType;
-use crate::config::Config;
 use crate::analysis::{
     Analyzer, AnalysisOptions, AnalysisResult, AnalysisDetails, MemoryDetails, MemoryLeak,
     AnalysisIssue, IssueSeverity, AnalysisLevel, AnalysisType
@@ -97,7 +94,7 @@ impl Analyzer for Valgrind {
             ])
             .current_dir(&temp_dir.path());
             
-        let valgrind_output = valgrind_cmd
+        let _valgrind_output = valgrind_cmd
             .output()
             .context("Failed to run Valgrind Memcheck")?;
             
@@ -207,7 +204,7 @@ impl Analyzer for Valgrind {
 
 impl Valgrind {
     /// Prepare an executable from the source file for analysis
-    fn prepare_executable(&self, file_type: &FileType, file_path: &Path, temp_dir: &TempDir, verbose: bool) -> Result<String> {
+    fn prepare_executable(&self, file_type: &FileType, file_path: &Path, temp_dir: &TempDir, _verbose: bool) -> Result<String> {
         let executable_path = temp_dir.path().join("executable");
         
         match file_type {
@@ -719,7 +716,7 @@ impl Analyzer for AddressSanitizer {
 
 impl AddressSanitizer {
     /// Prepare an executable from the source file with ASan enabled
-    fn prepare_executable(&self, file_type: &FileType, file_path: &Path, temp_dir: &TempDir, verbose: bool) -> Result<String> {
+    fn prepare_executable(&self, file_type: &FileType, file_path: &Path, temp_dir: &TempDir, _verbose: bool) -> Result<String> {
         let executable_path = temp_dir.path().join("executable_asan");
         
         match file_type {
@@ -849,10 +846,10 @@ rustflags = ["-Zsanitizer=address"]
     fn parse_asan_results(&self, asan_output: &str) -> Result<MemoryDetails> {
         let mut peak_memory = 0;
         let mut total_allocations = 0;
-        let mut total_deallocations = 0;
+        let total_deallocations = 0;
         let mut leaks = Vec::new();
-        let mut allocation_hotspots = Vec::new();
-        let mut heap_usage_timeline = Vec::new();
+        let allocation_hotspots = Vec::new();
+        let heap_usage_timeline = Vec::new();
         
         // Check for memory leaks
         if asan_output.contains("LeakSanitizer") {
@@ -1341,7 +1338,7 @@ static ALLOC: dhat::Alloc = dhat::Alloc;
 
 impl RustMemoryLeakDetector {
     /// Parse dhat-heap results into structured memory details
-    fn parse_dhat_results(&self, dhat_json: &str, drop_check_results: Option<&str>) -> Result<MemoryDetails> {
+    fn parse_dhat_results(&self, dhat_json: &str, _drop_check_results: Option<&str>) -> Result<MemoryDetails> {
         let mut peak_memory = 0;
         let mut total_allocations = 0;
         let mut total_deallocations = 0;
@@ -1595,10 +1592,10 @@ impl RustMemoryLeakDetector {
                 }),
                 severity,
                 description: format!("Memory safety issue detected: {}", error_msg),
-                location,
+                location: location.clone(),
                 suggestion: Some(suggestion),
                 analysis_type: AnalysisType::Memory,
-                locations: location.clone().map(|loc| vec![loc]).unwrap_or_default(),
+                locations: location.map(|loc| vec![loc]).unwrap_or_default(),
             });
         }
         
@@ -1726,12 +1723,14 @@ impl Analyzer for PythonMemoryAnalyzer {
         
         // Create a wrapper script for memory profiling
         let wrapper_path = temp_dir.path().join("memory_profile_wrapper.py");
+        // We need to use the string version of output_dir for the memory profiler wrapper
         let wrapper_content = self.generate_memory_profiler_wrapper(file_name, &output_dir);
         fs::write(&wrapper_path, wrapper_content).context("Failed to write memory profiler wrapper")?;
         
         // Create a wrapper script for tracemalloc
         let tracemalloc_path = temp_dir.path().join("tracemalloc_wrapper.py");
-        let tracemalloc_content = self.generate_tracemalloc_wrapper(file_name, &output_dir);
+        // Create a temporary path for tracemalloc output
+        let tracemalloc_content = self.generate_tracemalloc_wrapper(file_name, temp_dir.path())?;
         fs::write(&tracemalloc_path, tracemalloc_content).context("Failed to write tracemalloc wrapper")?;
         
         // Run both wrappers
@@ -1957,7 +1956,7 @@ except Exception as e:
     fn parse_python_memory_results(&self, memory_profile: &str, tracemalloc: &str, object_lifetime: &str) -> Result<MemoryDetails> {
         let mut peak_memory = 0;
         let mut total_allocations = 0;
-        let mut total_deallocations = 0;
+        let total_deallocations = 0;
         let mut leaks = Vec::new();
         let mut allocation_hotspots = Vec::new();
         let mut heap_usage_timeline = Vec::new();
@@ -1996,9 +1995,7 @@ except Exception as e:
 
         // Parse tracemalloc output
         if !tracemalloc.is_empty() {
-            let mut parsing_allocations = false;
             let mut parsing_by_file = false;
-            let mut parsing_by_category = false;
             
             for line in tracemalloc.lines() {
                 // Count allocations
@@ -2025,18 +2022,10 @@ except Exception as e:
                 }
                 
                 // Detect sections
-                if line.contains("Top memory allocations:") {
-                    parsing_allocations = true;
-                    parsing_by_file = false;
-                    parsing_by_category = false;
-                } else if line.contains("Memory allocations by file:") {
-                    parsing_allocations = false;
+                if line.contains("Memory allocations by file:") {
                     parsing_by_file = true;
-                    parsing_by_category = false;
-                } else if line.contains("Memory allocations by category:") {
-                    parsing_allocations = false;
+                } else if !line.contains("Memory allocations by file:") {
                     parsing_by_file = false;
-                    parsing_by_category = true;
                 }
             }
         }

@@ -1,11 +1,9 @@
 use std::path::{Path, PathBuf};
 use std::collections::{HashMap, HashSet};
-use anyhow::{Result, anyhow, Context};
+use anyhow::{Result, anyhow};
 use serde::{Serialize, Deserialize};
-use log::{debug, warn, error};
-use std::process;
 
-use super::audit::{self, EventSeverity};
+use super::audit;
 use super::secure::SecurityConfig;
 use super::paths::PathSecurityConfig;
 
@@ -156,7 +154,7 @@ impl PolicyEnforcer {
         path: &Path,
     ) -> Result<()> {
         // Create correlation ID for this authorization check
-        let correlation_id = format!("auth_{}_{}", tool, uuid::Uuid::new_v4());
+        let _correlation_id = format!("auth_{}_{}", tool, uuid::Uuid::new_v4());
         
         // Check user restrictions
         if let Some(restrictions) = self.policy.user_restrictions.get(&self.current_user) {

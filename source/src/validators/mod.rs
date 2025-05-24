@@ -2,7 +2,6 @@ use anyhow::{Result, anyhow, Context};
 use std::path::Path;
 use std::process::{Command, Stdio};
 use std::str;
-use std::collections::HashMap;
 use std::time::Duration;
 use regex::Regex;
 use tempfile;
@@ -29,14 +28,13 @@ pub fn validate_file(file_path: &Path, options: &ValidationOptions) -> Result<bo
         }
         
         // Check file mappings if present
-        if let Some(file_mappings) = config.file_mappings.as_ref() {
-            if let Some(file_name) = file_path.file_name() {
-                if let Some(file_name_str) = file_name.to_str() {
-                    if let Some(mapped_type) = file_mappings.get(file_name_str) {
-                        // Check if we have a custom validator for the mapped type
-                        if let Some(custom_config) = config.validators.custom.get(mapped_type) {
-                            return validate_custom(file_path, options, custom_config);
-                        }
+        // File mappings is a direct HashMap, no need for as_ref()
+        if let Some(file_name) = file_path.file_name() {
+            if let Some(file_name_str) = file_name.to_str() {
+                if let Some(mapped_type) = config.file_mappings.get(file_name_str) {
+                    // Check if we have a custom validator for the mapped type
+                    if let Some(custom_config) = config.validators.custom.get(mapped_type) {
+                        return validate_custom(file_path, options, custom_config);
                     }
                 }
             }
@@ -911,12 +909,17 @@ fn validate_custom(file_path: &Path, options: &ValidationOptions, custom_config:
     // Add the file path as the last argument
     cmd.arg(file_path);
     
-    // Get timeout from config or use default
-    let timeout_secs = options.config.as_ref()
-        .and_then(|config| config.timeout)
-        .unwrap_or(30);
+    // Get timeout from options or config
+    let timeout_secs = if options.timeout > 0 {
+        options.timeout
+    } else {
+        options.config.as_ref()
+            .map(|config| config.timeout)
+            .unwrap_or(30)
+    };
     
     // Execute with timeout using wait_timeout crate
+    // We need to capture output to match against the success pattern if specified
     let mut child = cmd.spawn().context("Failed to execute custom validator command")?;
     
     // Use timeout from validation options
@@ -945,20 +948,22 @@ fn validate_custom(file_path: &Path, options: &ValidationOptions, custom_config:
         }
     });
     
-    // Wait for process completion or timeout
-    let status = match rx.recv_timeout(timeout_duration) {
+    // Wait for process completion or timeout, capturing output
+    let result: Result<std::process::Output> = match rx.recv_timeout(timeout_duration) {
         Ok(_) => {
             // Timeout occurred
             if options.verbose {
                 eprintln!("Custom validator timed out after {} seconds", timeout_secs);
             }
+            
+            // Try to kill the process to be sure
+            let _ = child.kill();
             return Ok(false);
         },
         Err(_) => {
-            // Process completed before timeout
-            match child.wait() {
-        Ok(status) => status,
-                Ok(status) => status,
+            // Process completed before timeout - we can safely wait_with_output
+            match child.wait_with_output() {
+                Ok(output) => Ok(output),
                 Err(e) => {
                     if options.verbose {
                         eprintln!("Error executing custom validator: {}", e);
@@ -969,54 +974,59 @@ fn validate_custom(file_path: &Path, options: &ValidationOptions, custom_config:
         }
     };
     
-    let success = status.success();
-    
-    // If a success pattern is defined, use it to determine success instead of exit code
-    if let Some(pattern) = &custom_config.success_pattern {
-        if let Ok(output) = child.wait_with_output() {
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            let stderr = String::from_utf8_lossy(&output.stderr);
+    // Process the execution result
+    match result {
+        Ok(output) => {
+            let success = output.status.success();
             
-            // Combine stdout and stderr for pattern matching
-            let combined_output = format!("{}\n{}", stdout, stderr);
-            
-            // Create a regex from the pattern
-            match Regex::new(pattern) {
-                Ok(regex) => {
-                    // Check if the pattern matches
-                    let pattern_matches = regex.is_match(&combined_output);
-                    
-                    if options.verbose && !pattern_matches {
-                        eprintln!("Custom validator output did not match success pattern: {}", pattern);
-                        eprintln!("Output: {}", combined_output);
+            // If a success pattern is defined, use it to determine success instead of exit code
+            if let Some(pattern) = &custom_config.success_pattern {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                
+                // Combine stdout and stderr for pattern matching
+                let combined_output = format!("{}\n{}", stdout, stderr);
+                
+                // Create a regex from the pattern
+                match Regex::new(pattern) {
+                    Ok(regex) => {
+                        // Check if the pattern matches
+                        let pattern_matches = regex.is_match(&combined_output);
+                        
+                        if options.verbose && !pattern_matches {
+                            eprintln!("Custom validator output did not match success pattern: {}", pattern);
+                            eprintln!("Output: {}", combined_output);
+                        }
+                        
+                        return Ok(pattern_matches);
+                    },
+                    Err(e) => {
+                        if options.verbose {
+                            eprintln!("Invalid success pattern regex: {}", e);
+                        }
+                        // Continue with regular validation based on exit code
                     }
-                    
-                    return Ok(pattern_matches);
-                },
-                Err(e) => {
-                    if options.verbose {
-                        eprintln!("Invalid success pattern regex: {}", e);
-                    }
-                    // Continue with regular validation
                 }
             }
+            
+            // Fall back to exit code if no pattern or pattern matching failed
+            if !success && options.verbose {
+                eprintln!("Custom validator failed: {}", custom_config.command);
+                if !output.stderr.is_empty() {
+                    eprintln!("{}", String::from_utf8_lossy(&output.stderr));
+                }
+                if !output.stdout.is_empty() {
+                    eprintln!("{}", String::from_utf8_lossy(&output.stdout));
+                }
+            }
+            
+            Ok(success)
+        },
+        Err(e) => {
+            // This shouldn't happen due to our earlier error handling, but just in case
+            Err(anyhow!("Failed to execute custom validator: {}", e))
         }
     }
-    
-    // Fall back to exit code if no pattern or pattern matching failed
-    if !success && options.verbose {
-        eprintln!("Custom validator failed: {}", custom_config.command);
-        if let Ok(output) = child.wait_with_output() {
-            if !output.stderr.is_empty() {
-                eprintln!("{}", String::from_utf8_lossy(&output.stderr));
-            }
-            if !output.stdout.is_empty() {
-                eprintln!("{}", String::from_utf8_lossy(&output.stdout));
-            }
-        }
-    }
-    
-    Ok(success)
 }
 
 fn validate_unknown(file_path: &Path, options: &ValidationOptions) -> Result<bool> {
@@ -1046,6 +1056,8 @@ mod tests {
         let options = ValidationOptions {
             strict: false,
             verbose: false,
+            timeout: 30,
+            config: None,
         };
         let result = validate_c(&file_path, &options).unwrap();
         assert!(result, "Valid C file should pass validation");
@@ -1057,6 +1069,8 @@ mod tests {
         let options = ValidationOptions {
             strict: false,
             verbose: false,
+            timeout: 30,
+            config: None,
         };
         let result = validate_c(&file_path, &options).unwrap();
         assert!(!result, "Invalid C file should fail validation");
@@ -1068,6 +1082,8 @@ mod tests {
         let options = ValidationOptions {
             strict: true,
             verbose: false,
+            timeout: 30,
+            config: None,
         };
         let result = validate_c(&file_path, &options).unwrap();
         assert!(result, "Valid C file should pass strict validation");
@@ -1080,6 +1096,8 @@ mod tests {
         let options = ValidationOptions {
             strict: false,
             verbose: false,
+            timeout: 30,
+            config: None,
         };
         let result = validate_csharp(&file_path, &options).unwrap();
         assert!(result, "Valid C# file should pass validation");
@@ -1091,6 +1109,8 @@ mod tests {
         let options = ValidationOptions {
             strict: false,
             verbose: false,
+            timeout: 30,
+            config: None,
         };
         let result = validate_csharp(&file_path, &options).unwrap();
         assert!(!result, "Invalid C# file should fail validation");
@@ -1103,6 +1123,8 @@ mod tests {
         let options = ValidationOptions {
             strict: false,
             verbose: false,
+            timeout: 30,
+            config: None,
         };
         let result = validate_python(&file_path, &options).unwrap();
         assert!(result, "Valid Python file should pass validation");
@@ -1114,6 +1136,8 @@ mod tests {
         let options = ValidationOptions {
             strict: false,
             verbose: false,
+            timeout: 30,
+            config: None,
         };
         let result = validate_python(&file_path, &options).unwrap();
         // Even with syntax errors, basic Python validation might pass as long as it's valid Python
@@ -1127,6 +1151,8 @@ mod tests {
         let options = ValidationOptions {
             strict: true,
             verbose: false,
+            timeout: 30,
+            config: None,
         };
         let result = validate_python(&file_path, &options).unwrap();
         // In strict mode with pylint and mypy, this should fail
@@ -1140,6 +1166,8 @@ mod tests {
         let options = ValidationOptions {
             strict: false,
             verbose: false,
+            timeout: 30,
+            config: None,
         };
         let result = validate_javascript(&file_path, &options).unwrap();
         assert!(result, "Valid JavaScript file should pass validation");
@@ -1151,6 +1179,8 @@ mod tests {
         let options = ValidationOptions {
             strict: false,
             verbose: true, // Use verbose to see the errors
+            timeout: 30,
+            config: None,
         };
         let result = validate_javascript(&file_path, &options).unwrap();
         // Basic syntax check may still pass as the JS has valid syntax but ESLint issues
@@ -1163,6 +1193,8 @@ mod tests {
         let options = ValidationOptions {
             strict: true,
             verbose: false,
+            timeout: 30,
+            config: None,
         };
         let result = validate_javascript(&file_path, &options).unwrap();
         // In strict mode with ESLint, this should fail

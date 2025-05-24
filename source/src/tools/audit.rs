@@ -5,7 +5,7 @@ use std::thread;
 use std::fmt;
 use anyhow::{Result, Context};
 use serde::{Serialize, Deserialize};
-use log::{debug, info, warn, error};
+use log::{debug, info, warn};
 use once_cell::sync::Lazy;
 use blake3;
 

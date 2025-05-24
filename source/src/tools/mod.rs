@@ -29,9 +29,8 @@ pub use policy::{
 };
 pub use audit::AuditConfig;
 
-use std::path::{Path, PathBuf};
-use anyhow::{Result, Context};
-use log::{debug, warn, error};
+use std::path::Path;
+use anyhow::Result;
 
 /// Main tool manager that coordinates all security components
 pub struct ToolManager {
@@ -148,7 +147,7 @@ impl ToolManager {
         
         // Create secure path
         let path_config = self.policy_enforcer.get_path_security_config(path);
-        let secure_path = SecurePath::new(path, path_config)?;
+        let _secure_path = SecurePath::new(path, path_config)?;
         
         // Create temporary file
         let (temp_path, mut temp_file) = paths::create_secure_tempfile()?;

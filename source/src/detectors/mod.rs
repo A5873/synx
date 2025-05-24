@@ -373,7 +373,9 @@ pub fn detect_file_type(path: &Path) -> Result<FileType> {
         None,  // verbose
         None,  // watch
         None,  // watch_interval
-        None,  // watch_directory
+        None,  // timeout
+        None,  // enable_cache
+        None,  // cache_duration
         None,  // explicit_config_path
     )?;
     

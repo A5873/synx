@@ -2,7 +2,6 @@ use std::path::{Path, PathBuf};
 use std::fs::{self, Metadata};
 use std::collections::HashSet;
 use anyhow::{Result, anyhow, Context};
-use log::{debug, warn, error};
 use blake3; // For fast cryptographic hashing
 use serde::{Serialize, Deserialize};
 
@@ -198,7 +197,7 @@ fn validate_file_metadata(metadata: &Metadata, config: &PathSecurityConfig) -> R
 
 /// Create a temporary file securely
 pub fn create_secure_tempfile() -> Result<(PathBuf, fs::File)> {
-    use tempfile::{Builder, NamedTempFile};
+    use tempfile::Builder;
     
     let file = Builder::new()
         .prefix("synx-secure-")
