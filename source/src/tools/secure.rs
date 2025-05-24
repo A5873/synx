@@ -1,7 +1,6 @@
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio, Child};
 use std::time::Duration;
-use std::collections::HashSet;
 use std::str::FromStr;
 use anyhow::{Result, anyhow, Context};
 use regex::Regex;
@@ -353,7 +352,6 @@ fn setup_seccomp_filters(config: &SecurityConfig) -> Result<()> {
                     SeccompCmpOp::Eq, 
                     libc::AF_INET as u64,
                 )?],
-                block_action,
             )?,
             // Block IPv6 sockets
             SeccompRule::new(
@@ -363,7 +361,6 @@ fn setup_seccomp_filters(config: &SecurityConfig) -> Result<()> {
                     SeccompCmpOp::Eq, 
                     libc::AF_INET6 as u64,
                 )?],
-                block_action,
             )?,
         ];
         rules.insert(libc::SYS_socket as i64, socket_rules);
@@ -372,7 +369,6 @@ fn setup_seccomp_filters(config: &SecurityConfig) -> Result<()> {
         let connect_rules = vec![
             SeccompRule::new(
                 vec![], // No conditions means block all calls to this syscall
-                block_action,
             )?
         ];
         rules.insert(libc::SYS_connect as i64, connect_rules);
@@ -380,8 +376,7 @@ fn setup_seccomp_filters(config: &SecurityConfig) -> Result<()> {
         // Accept syscall - block all incoming connections
         let accept_rules = vec![
             SeccompRule::new(
-                vec![], 
-                block_action,
+                vec![],
             )?
         ];
         rules.insert(libc::SYS_accept as i64, accept_rules);
@@ -389,8 +384,7 @@ fn setup_seccomp_filters(config: &SecurityConfig) -> Result<()> {
         // Also block accept4 which is a variant of accept
         let accept4_rules = vec![
             SeccompRule::new(
-                vec![], 
-                block_action,
+                vec![],
             )?
         ];
         rules.insert(libc::SYS_accept4 as i64, accept4_rules);
@@ -407,7 +401,6 @@ fn setup_seccomp_filters(config: &SecurityConfig) -> Result<()> {
                     SeccompCmpOp::MaskedEq(libc::O_WRONLY as u64 | libc::O_RDWR as u64),
                     libc::O_WRONLY as u64,
                 )?],
-                block_action,
             )?,
             SeccompRule::new(
                 vec![SeccompCondition::new(
@@ -416,8 +409,7 @@ fn setup_seccomp_filters(config: &SecurityConfig) -> Result<()> {
                     SeccompCmpOp::MaskedEq(libc::O_WRONLY as u64 | libc::O_RDWR as u64),
                     libc::O_RDWR as u64,
                 )?],
-                block_action,
-            )?,
+            )?
         ];
         rules.insert(libc::SYS_open as i64, open_rules);
         
@@ -430,7 +422,6 @@ fn setup_seccomp_filters(config: &SecurityConfig) -> Result<()> {
                     SeccompCmpOp::MaskedEq(libc::O_WRONLY as u64 | libc::O_RDWR as u64),
                     libc::O_WRONLY as u64,
                 )?],
-                block_action,
             )?,
             SeccompRule::new(
                 vec![SeccompCondition::new(
@@ -439,8 +430,7 @@ fn setup_seccomp_filters(config: &SecurityConfig) -> Result<()> {
                     SeccompCmpOp::MaskedEq(libc::O_WRONLY as u64 | libc::O_RDWR as u64),
                     libc::O_RDWR as u64,
                 )?],
-                block_action,
-            )?,
+            )?
         ];
         rules.insert(libc::SYS_openat as i64, openat_rules);
         
@@ -448,7 +438,6 @@ fn setup_seccomp_filters(config: &SecurityConfig) -> Result<()> {
         let creat_rules = vec![
             SeccompRule::new(
                 vec![],
-                block_action,
             )?
         ];
         rules.insert(libc::SYS_creat as i64, creat_rules);
@@ -457,7 +446,6 @@ fn setup_seccomp_filters(config: &SecurityConfig) -> Result<()> {
         let rename_rules = vec![
             SeccompRule::new(
                 vec![],
-                block_action,
             )?
         ];
         rules.insert(libc::SYS_rename as i64, rename_rules);
@@ -466,7 +454,6 @@ fn setup_seccomp_filters(config: &SecurityConfig) -> Result<()> {
         let unlink_rules = vec![
             SeccompRule::new(
                 vec![],
-                block_action,
             )?
         ];
         rules.insert(libc::SYS_unlink as i64, unlink_rules);
@@ -478,7 +465,6 @@ fn setup_seccomp_filters(config: &SecurityConfig) -> Result<()> {
         let fork_rules = vec![
             SeccompRule::new(
                 vec![],
-                block_action,
             )?
         ];
         rules.insert(libc::SYS_fork as i64, fork_rules);
@@ -487,7 +473,6 @@ fn setup_seccomp_filters(config: &SecurityConfig) -> Result<()> {
         let vfork_rules = vec![
             SeccompRule::new(
                 vec![],
-                block_action,
             )?
         ];
         rules.insert(libc::SYS_vfork as i64, vfork_rules);
@@ -496,7 +481,6 @@ fn setup_seccomp_filters(config: &SecurityConfig) -> Result<()> {
         let clone_rules = vec![
             SeccompRule::new(
                 vec![],
-                block_action,
             )?
         ];
         rules.insert(libc::SYS_clone as i64, clone_rules);
@@ -505,22 +489,48 @@ fn setup_seccomp_filters(config: &SecurityConfig) -> Result<()> {
         let execve_rules = vec![
             SeccompRule::new(
                 vec![],
-                block_action,
             )?
         ];
         rules.insert(libc::SYS_execve as i64, execve_rules);
     }
     
-    // Create and apply the filter
+    // Create the filter with rule actions
     let filter = SeccompFilter::new(
         rules,
         default_action,
+        block_action,
         TargetArch::x86_64,
     )?;
     
     // Apply the seccomp filter
     unsafe {
-        filter.apply()?;
+        // Enable seccomp mode 2 (filtered)
+        if libc::prctl(libc::PR_SET_SECCOMP, libc::SECCOMP_MODE_FILTER, 0) != 0 {
+            return Err(anyhow!("Failed to set SECCOMP_MODE_FILTER: {}", std::io::Error::last_os_error()));
+        }
+        
+        // Get the raw filter as a BPF program
+        let filter_bytes = filter.to_bytes()?;
+        
+        // Create sock_filters from the raw bytes
+        let filter_size = filter_bytes.len() / std::mem::size_of::<libc::sock_filter>();
+        let filters = unsafe {
+            std::slice::from_raw_parts(
+                filter_bytes.as_ptr() as *const libc::sock_filter,
+                filter_size
+            )
+        };
+        
+        // Create a sock_fprog structure for the BPF program
+        let mut prog = libc::sock_fprog {
+            len: filters.len() as u16,
+            filter: filters.as_ptr() as *mut libc::sock_filter,
+        };
+        
+        // Apply using seccomp
+        if libc::syscall(libc::SYS_seccomp, libc::SECCOMP_SET_MODE_FILTER, 0, &mut prog) != 0 {
+            return Err(anyhow!("Failed to apply seccomp filter: {}", std::io::Error::last_os_error()));
+        }
     }
     
     Ok(())
