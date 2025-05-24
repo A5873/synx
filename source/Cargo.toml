@@ -50,6 +50,9 @@ libseccomp-rs = "0.1.0"
 # Terminal output
 termcolor = "1.4"
 
+# Command line argument parsing
+clap = { version = "4.4", features = ["derive"] }
+
 # TUI features
 tui = { version = "0.19", default-features = false, features = ["crossterm", "serde"] }
 crossterm = { version = "0.26", features = ["event-stream"] }
