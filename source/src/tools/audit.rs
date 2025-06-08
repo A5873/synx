@@ -516,7 +516,6 @@ fn send_webhook_alert(event: &AuditEvent, config: &serde_json::Value) {
 }
 
 /// Get the current user name
-/// Get the current user name
 pub(crate) fn get_current_user() -> String {
     #[cfg(unix)]
     {

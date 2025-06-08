@@ -1,7 +1,7 @@
 //! Analysis module for performance, memory, and code quality
 //!
 //! This module provides tools for code analysis, performance profiling,
-//! and memory usage detection.
+//! and memory usage detection in a secure manner.
 
 mod memory;
 mod perf;
@@ -98,6 +98,31 @@ pub struct CodeFinding {
     pub suggestion: Option<String>,
 }
 
+// Additional performance metrics from the other implementation
+#[derive(Debug, Clone, Serialize)]
+pub struct PerfMetrics {
+    /// Execution time
+    pub execution_time: f64,
+    /// CPU usage
+    pub cpu_usage: f64,
+    /// I/O operations
+    pub io_ops: u64,
+    /// Performance bottlenecks
+    pub bottlenecks: Vec<Bottleneck>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct Bottleneck {
+    /// Operation causing bottleneck
+    pub operation: String,
+    /// Impact on performance
+    pub impact: f64,
+    /// Location in code
+    pub location: CodeLocation,
+    /// Optimization suggestions
+    pub suggestions: Vec<String>,
+}
+
 /// Main analyzer that coordinates memory and performance analysis
 pub struct CodeAnalyzer {
     config: AnalysisConfig,
@@ -127,12 +152,16 @@ impl CodeAnalyzer {
             config,
             analysis_options,
         })
+        })
     }
 
     /// Analyze a file
     pub fn analyze_file(&self, path: &Path) -> Result<traits::AnalysisResult> {
         // Analyze memory usage
         let memory_result = self.memory_analyzer.analyze(path, &self.analysis_options)?;
+        
+        // Analyze performance separately (incorporate from other implementation)
+        let perf_result = self.perf_analyzer.analyze(path, &self.analysis_options)?;
         
         // Apply custom analysis rules
         let findings = self.apply_rules(path)?;
@@ -159,11 +188,14 @@ impl CodeAnalyzer {
         let mut all_issues = memory_result.issues;
         all_issues.extend(code_findings);
         
+        // Add performance issues
+        all_issues.extend(perf_result.issues);
+        
         // Return a new analysis result with our combined data
         Ok(traits::AnalysisResult {
             analyzer_name: "CodeAnalyzer".to_string(),
-            success: memory_result.success,
-            duration: memory_result.duration,
+            success: memory_result.success && perf_result.success,
+            duration: memory_result.duration + perf_result.duration,
             summary: format!("Code analysis completed with {} findings", findings.len()),
             details: memory_result.details,
             report_files: memory_result.report_files,

@@ -26,7 +26,6 @@ use windows_sys::Win32::System::Threading::{
     JOBOBJECT_BASIC_LIMIT_INFORMATION, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
     JOB_OBJECT_LIMIT_PROCESS_MEMORY, JOB_OBJECT_LIMIT_PROCESS_TIME,
 };
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SecurityConfig {
     /// Maximum execution time in seconds
@@ -549,6 +548,46 @@ fn setup_macos_sandbox(config: &SecurityConfig) -> Result<()> {
     // For now, we'll just provide a stub implementation and log the profile
     warn!("macOS sandbox implementation is a stub - security restrictions may not be fully applied");
     
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn setup_seccomp_filters(config: &SecurityConfig) -> Result<()> {
+    #[cfg(feature = "seccomp")]
+    {
+        use seccomp_rs::{SeccompFilter, Action, Comparison, Syscall};
+        
+        let mut filter = SeccompFilter::new(Action::Allow)?;
+
+        // Block network access if not allowed
+        if !config.allow_network {
+            filter.add_rule(Syscall::socket, Action::Errno(1))?;
+            filter.add_rule(Syscall::connect, Action::Errno(1))?;
+            filter.add_rule(Syscall::accept, Action::Errno(1))?;
+        }
+
+        // Block file writes if not allowed
+        if !config.restrictions.allow_file_writes {
+            filter.add_rule(Syscall::open, Action::Errno(1))?;
+            filter.add_rule(Syscall::creat, Action::Errno(1))?;
+            filter.add_rule(Syscall::rename, Action::Errno(1))?;
+            filter.add_rule(Syscall::unlink, Action::Errno(1))?;
+        }
+
+        // Block subprocess creation if not allowed
+        if !config.restrictions.allow_subprocesses {
+            filter.add_rule(Syscall::fork, Action::Errno(1))?;
+            filter.add_rule(Syscall::vfork, Action::Errno(1))?;
+            filter.add_rule(Syscall::clone, Action::Errno(1))?;
+        }
+
+        filter.load()?;
+    }
+    
+    #[cfg(not(feature = "seccomp"))]
+    {
+        debug!("Seccomp filtering disabled at compile time");
+    }
     Ok(())
 }
 

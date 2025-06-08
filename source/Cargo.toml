@@ -60,7 +60,6 @@ core-foundation = { version = "0.9", optional = true }
 
 # Terminal output
 termcolor = "1.4"
-
 # TUI features
 tui = { version = "0.19", default-features = false, features = ["crossterm", "serde"] }
 crossterm = { version = "0.26", features = ["event-stream"] }
@@ -109,7 +108,6 @@ platform-security = [
 linux-security = ["nix", "seccompiler", "rlimit", "libseccomp-rs"]
 macos-security = ["nix", "objc", "core-foundation"]
 windows-security = ["windows-sys"]
-
 # Optional validators
 python = []
 javascript = []
@@ -120,6 +118,28 @@ java = []
 csharp = []
 go = []
 
+[profile.release]
+# Enable link-time optimization
+lto = true
+# Enable debug information
+debug = true
+# Optimize for size
+opt-level = "s"
+# Enable stack unwinding
+panic = "unwind"
+
+[profile.dev]
+# Enable debug assertions
+debug-assertions = true
+# Enable overflow checks
+overflow-checks = true
+# Enable debug information
+debug = true
+
+[workspace]
+members = [
+    "source",
+]
 [[bin]]
 name = "synx"
 path = "src/main.rs"

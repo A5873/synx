@@ -881,8 +881,6 @@ fn validate_dockerfile(file_path: &Path, options: &ValidationOptions) -> Result<
 
     Ok(success)
 }
-
-
 fn validate_custom(file_path: &Path, options: &ValidationOptions, custom_config: &config::CustomValidatorConfig) -> Result<bool> {
     // Set up the command
     let mut cmd = Command::new(&custom_config.command);
@@ -1001,6 +999,7 @@ fn validate_custom(file_path: &Path, options: &ValidationOptions, custom_config:
             }
         }
     }
+<<<<<<< HEAD
     
     // Fall back to exit code if no pattern or pattern matching failed
     if !success && options.verbose {
@@ -1016,6 +1015,239 @@ fn validate_custom(file_path: &Path, options: &ValidationOptions, custom_config:
     }
     
     Ok(success)
+}
+
+=======
+
+    Ok(success)
+}
+
+fn validate_csharp(file_path: &Path, options: &ValidationOptions) -> Result<bool> {
+    // First, try dotnet CLI
+    let dotnet_check = Command::new("dotnet").arg("--version").output();
+    
+    if dotnet_check.is_ok() {
+        // Use dotnet CLI to build the C# file
+        let temp_dir = tempfile::Builder::new()
+                        .prefix("synx-csharp-check")
+                        .tempdir()?;
+                        
+        let mut cmd = Command::new("dotnet");
+        cmd.arg("build")
+           .current_dir(temp_dir.path())
+           .arg(file_path);
+           
+        if options.strict {
+            cmd.arg("/warnaserror");
+        }
+        
+        let output = cmd.output()?;
+        let success = output.status.success();
+        
+        if !success && options.verbose {
+            eprintln!("C# validation errors (dotnet):");
+            if !output.stderr.is_empty() {
+                eprintln!("{}", String::from_utf8_lossy(&output.stderr));
+            }
+        }
+        
+        if success && options.strict {
+            // Check style with dotnet format if available
+            let format_check = Command::new("dotnet")
+                .arg("format")
+                .arg("--verify-no-changes")
+                .arg(file_path)
+                .output();
+                
+            if let Ok(output) = format_check {
+                if !output.status.success() && options.verbose {
+                    eprintln!("C# style errors detected");
+                    return Ok(false);
+                }
+            }
+=======
+>>>>>>> feature/config-system-backup
+        }
+        
+        return Ok(success);
+    } else {
+        // Fallback to Mono's mcs compiler if dotnet CLI is not available
+        let mcs_check = Command::new("mcs").arg("--version").output();
+        
+        if mcs_check.is_ok() {
+            let mut cmd = Command::new("mcs");
+            cmd.arg("-out:/dev/null") // Discard output assembly
+               .arg("-warnaserror");
+               
+            if options.strict {
+                cmd.arg("-warn:4"); // High warning level
+            } else {
+                cmd.arg("-warn:1"); // Basic warning level
+            }
+            
+            cmd.arg(file_path);
+            let output = cmd.output()?;
+            let success = output.status.success();
+            
+            if !success && options.verbose {
+                eprintln!("C# validation errors (Mono):");
+                if !output.stderr.is_empty() {
+                    eprintln!("{}", String::from_utf8_lossy(&output.stderr));
+                }
+            }
+            
+            return Ok(success);
+        } else if options.verbose {
+            eprintln!("No C# compiler found. Please install .NET SDK or Mono.");
+        }
+        
+        return Ok(!options.strict);
+    }
+}
+
+fn validate_python(file_path: &Path, options: &ValidationOptions) -> Result<bool> {
+    // Basic syntax check
+    let mut cmd = Command::new("python3");
+    cmd.arg("-m")
+       .arg("py_compile")
+       .arg(file_path);
+       
+    let output = cmd.output()?;
+    let syntax_valid = output.status.success();
+    
+    if !syntax_valid {
+        if options.verbose {
+            eprintln!("Python syntax errors:");
+            if !output.stderr.is_empty() {
+                eprintln!("{}", String::from_utf8_lossy(&output.stderr));
+            }
+        }
+        return Ok(false);
+    }
+    
+    // If strict or verbose mode, run additional checks
+    if options.strict || options.verbose {
+        let mut success = true;
+        
+        // Check if mypy is available for type checking
+        let mypy_check = Command::new("mypy").arg("--version").output();
+        if mypy_check.is_ok() {
+            let mypy_output = Command::new("mypy")
+                .arg("--show-column-numbers")
+                .arg(file_path)
+                .output()?;
+                
+            if !mypy_output.status.success() {
+                success = false;
+                if options.verbose {
+                    eprintln!("Python type errors:");
+                    if !mypy_output.stdout.is_empty() {
+                        eprintln!("{}", String::from_utf8_lossy(&mypy_output.stdout));
+                    }
+                }
+            }
+        } else if options.verbose {
+            eprintln!("Note: mypy not available, skipping type checking");
+        }
+        
+        // Check if pylint is available for linting
+        let pylint_check = Command::new("pylint").arg("--version").output();
+        if pylint_check.is_ok() {
+            let mut pylint_cmd = Command::new("pylint");
+            
+            if options.strict {
+                pylint_cmd.arg("--fail-under=9.0"); // Stricter score threshold
+            } else {
+                pylint_cmd.arg("--fail-under=7.0"); // More lenient score threshold
+            }
+            
+            pylint_cmd.arg("--output-format=text")
+                     .arg(file_path);
+                     
+            let pylint_output = pylint_cmd.output()?;
+            
+            if !pylint_output.status.success() {
+                success = false;
+                if options.verbose {
+                    eprintln!("Python linting issues:");
+                    if !pylint_output.stdout.is_empty() {
+                        eprintln!("{}", String::from_utf8_lossy(&pylint_output.stdout));
+                    }
+                }
+            }
+        } else if options.verbose {
+            eprintln!("Note: pylint not available, skipping linting");
+        }
+        
+        return Ok(success || !options.strict);
+    }
+    
+    Ok(true)
+}
+
+fn validate_javascript(file_path: &Path, options: &ValidationOptions) -> Result<bool> {
+    // Check if node is available
+    let node_check = Command::new("node").arg("--version").output();
+    if node_check.is_err() {
+        if options.verbose {
+            eprintln!("JavaScript validation requires Node.js to be installed");
+        }
+        return Ok(!options.strict);
+    }
+    
+    // Basic syntax check
+    let syntax_output = Command::new("node")
+        .arg("--check")
+        .arg(file_path)
+        .output()?;
+        
+    let syntax_valid = syntax_output.status.success();
+    
+    if !syntax_valid {
+        if options.verbose {
+            eprintln!("JavaScript syntax errors:");
+            if !syntax_output.stderr.is_empty() {
+                eprintln!("{}", String::from_utf8_lossy(&syntax_output.stderr));
+            }
+        }
+        return Ok(false);
+    }
+    
+    // For strict mode or verbose, run ESLint
+    if options.strict || options.verbose {
+        // Check if ESLint is available
+        let eslint_check = Command::new("eslint").arg("--version").output();
+        if eslint_check.is_ok() {
+            let mut cmd = Command::new("eslint");
+            cmd.arg("--format=stylish");
+            
+            if options.strict {
+                cmd.arg("--max-warnings=0");
+            }
+            
+            cmd.arg(file_path);
+            let output = cmd.output()?;
+            
+            if !output.status.success() && (options.strict || options.verbose) {
+                if options.verbose {
+                    eprintln!("JavaScript linting issues:");
+                    if !output.stdout.is_empty() {
+                        eprintln!("{}", String::from_utf8_lossy(&output.stdout));
+                    }
+                    if !output.stderr.is_empty() {
+                        eprintln!("{}", String::from_utf8_lossy(&output.stderr));
+                    }
+                }
+                
+                return Ok(!options.strict);
+            }
+        } else if options.verbose {
+            eprintln!("Note: ESLint not available, skipping linting");
+            eprintln!("Install with: npm install -g eslint");
+        }
+    }
+    
+    Ok(true)
 }
 
 fn validate_unknown(file_path: &Path, options: &ValidationOptions) -> Result<bool> {
