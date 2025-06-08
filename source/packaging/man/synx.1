@@ -1,4 +1,4 @@
-.TH SYNX 1 "May 2025" "synx 0.2.1" "User Commands"
+.TH SYNX 1 "May 2025" "synx 0.2.2" "User Commands"
 .SH NAME
 synx \- universal syntax validator and linter dispatcher
 .SH SYNOPSIS
@@ -6,80 +6,289 @@ synx \- universal syntax validator and linter dispatcher
 [\fIOPTIONS\fR] [\fIFILES\fR...]
 .SH DESCRIPTION
 .B synx
-is a command-line tool that inspects files and validates their syntax by automatically detecting the filetype and dispatching to appropriate validators or linters.
+is a CLI-first universal syntax validator and linter dispatcher built with Rust.
+It automatically detects file types and dispatches validation to appropriate
+tools and linters. synx provides a unified interface for syntax validation
+across multiple programming languages and configuration formats.
+.PP
+The tool is designed with security in mind, utilizing Rust's memory safety
+features and implementing proper sandboxing for executed validators. It supports
+both one-time validation and continuous monitoring through watch mode.
+.PP
+synx automatically detects file types using multiple methods including file
+extensions, magic numbers, and content analysis to ensure accurate validation
+dispatching.
 .SH OPTIONS
 .TP
 .BR \-w ", " \-\-watch
-Watch files for changes and revalidate automatically.
+Enable watch mode to monitor files for changes and automatically revalidate
+them. This is useful during development to get immediate feedback on syntax
+errors as you edit files. The tool will continue running until interrupted
+with Ctrl+C.
 .TP
 .BR \-v ", " \-\-verbose
-Show verbose output including detailed validation results.
+Enable verbose output showing detailed validation results, including which
+validators are being used, their output, and performance metrics. This is
+helpful for debugging validation issues and understanding what tools are
+being executed.
 .TP
 .BR \-c ", " \-\-config =\fIFILE\fR
-Use specific config file (default: ~/.config/synx/config.toml).
+Specify a custom configuration file path. If not provided, synx will look
+for configuration files in the following order:
+.RS
+.IP \(bu 2
+~/.config/synx/config.toml (user config)
+.IP \(bu 2
+./synx.toml (project config)
+.IP \(bu 2
+Built-in defaults
+.RE
 .TP
 .BR \-\-interval =\fISECONDS\fR
-Set watch interval in seconds (default: 2).
+Set the file watching interval in seconds (default: 2). This controls how
+frequently synx checks for file changes when in watch mode. Lower values
+provide faster feedback but use more system resources.
 .TP
 .BR \-\-init\-config
-Initialize default configuration file.
+Generate a default configuration file at ~/.config/synx/config.toml with
+all available options documented. This is useful for customizing synx's
+behavior for your specific needs.
 .TP
 .BR \-s ", " \-\-strict
-Strict mode - treat warnings as errors.
-.SH SUPPORTED LANGUAGES
+Enable strict mode where warnings are treated as errors. This is recommended
+for CI/CD pipelines and production environments where code quality standards
+must be enforced. In strict mode, synx will exit with non-zero status if
+any warnings are detected.
+.SH SUPPORTED LANGUAGES AND VALIDATORS
+synx supports a comprehensive set of programming languages and file formats.
+For each language, it uses the most appropriate and widely-adopted validation
+tools:
+.SS Programming Languages
 .TP
 .B Rust
-Uses rustc for syntax and type checking
+Primary: rustc (syntax and type checking)
+Optional: clippy (advanced linting)
+Validates: .rs files
 .TP
-.B C/C++
-Uses gcc/g++ with -Wall and -pedantic
+.B C
+Primary: gcc with -Wall -pedantic flags
+Optional: valgrind (memory leak detection in strict mode)
+Validates: .c, .h files
+.TP
+.B C++
+Primary: g++ with -Wall -pedantic flags
+Validates: .cpp, .cxx, .cc, .hpp, .hxx files
 .TP
 .B Java
-Uses javac with -Werror and checkstyle
+Primary: javac with -Werror flag
+Optional: checkstyle (code style validation)
+Validates: .java files
 .TP
 .B Go
-Uses go vet, gofmt, and golangci-lint
-.TP
-.B TypeScript
-Uses tsc and eslint
+Primary: go vet, gofmt
+Optional: golangci-lint (comprehensive linting)
+Validates: .go files
 .TP
 .B Python
-Uses python -m py_compile, mypy, and pylint
+Primary: python -m py_compile (syntax checking)
+Optional: mypy (type checking), pylint (style and error checking)
+Validates: .py, .pyw files
 .TP
 .B JavaScript
-Uses node --check
+Primary: node --check (syntax validation)
+Optional: eslint (linting and style checking)
+Validates: .js, .mjs files
+.TP
+.B TypeScript
+Primary: tsc (TypeScript compiler)
+Optional: eslint with TypeScript plugins
+Validates: .ts, .tsx files
+.TP
+.B C#
+Primary: .NET SDK or Mono compiler
+Optional: dotnet format (code formatting)
+Validates: .cs files
+.SS Configuration and Markup Languages
 .TP
 .B JSON
-Uses jq
+Validator: jq (JSON processor and validator)
+Validates: .json files
+Checks: Valid JSON syntax and structure
 .TP
 .B YAML
-Uses yamllint
+Validator: yamllint
+Validates: .yaml, .yml files
+Checks: YAML syntax, indentation, and common issues
 .TP
 .B HTML
-Uses tidy
+Validator: tidy (HTML syntax checker)
+Validates: .html, .htm files
+Checks: HTML5 compliance and structure
 .TP
 .B CSS
-Uses csslint
+Validator: csslint
+Validates: .css files
+Checks: CSS syntax and best practices
 .TP
-.B Shell
-Uses shellcheck
+.B XML
+Validator: xmllint
+Validates: .xml files
+Checks: Well-formed XML and DTD validation
+.SS Scripts and Configuration
+.TP
+.B Shell Scripts
+Validator: shellcheck
+Validates: .sh, .bash, .zsh files and shebang scripts
+Checks: Common shell scripting errors and best practices
+.TP
+.B Dockerfile
+Validator: hadolint
+Validates: Dockerfile, *.dockerfile files
+Checks: Docker best practices and security issues
+.SH CONFIGURATION
+synx behavior can be customized through configuration files written in TOML
+format. The configuration allows you to:
+.PP
+.IP \(bu 2
+Enable or disable specific validators
+.IP \(bu 2
+Set custom validator command-line options
+.IP \(bu 2
+Define file type associations
+.IP \(bu 2
+Configure security policies
+.IP \(bu 2
+Set timeout values for validators
+.PP
+Use
+.B synx --init-config
+to generate a documented configuration file with all available options.
+.SH EXIT STATUS
+.TP
+.B 0
+All validations passed successfully
+.TP
+.B 1
+Some validations failed (syntax errors or warnings in strict mode)
+.TP
+.B 2
+Configuration error, missing dependencies, or internal error
 .SH EXAMPLES
+.SS Basic Usage
 .TP
-Validate a single file:
+Validate a single Python file:
 .B synx script.py
 .TP
-Watch mode with multiple files:
-.B synx -w config.yaml script.py
+Validate multiple files:
+.B synx main.rs config.json style.css
+.TP
+Validate all files in current directory:
+.B synx *
+.SS Watch Mode
+.TP
+Watch a file during development:
+.B synx --watch main.rs
+.TP
+Watch multiple files with custom interval:
+.B synx -w --interval 1 src/*.rs
+.SS Advanced Usage
 .TP
 Strict validation with verbose output:
-.B synx -sv config.json
+.B synx --strict --verbose config.json
+.TP
+Use custom configuration:
+.B synx --config ./project-synx.toml src/
+.TP
+Generate default configuration:
+.B synx --init-config
+.SS Integration Examples
+.TP
+Pre-commit hook:
+.B synx $(git diff --cached --name-only)
+.TP
+CI/CD pipeline:
+.B synx --strict --verbose .
+.SH SECURITY
+synx implements several security measures:
+.PP
+.IP \(bu 2
+Validator processes run in constrained environments
+.IP \(bu 2
+File access is limited to specified input files
+.IP \(bu 2
+Network access is disabled for validators
+.IP \(bu 2
+Process timeouts prevent hanging validators
+.IP \(bu 2
+Memory usage limits prevent resource exhaustion
+.SH DEPENDENCIES
+synx requires various external tools depending on which languages you want
+to validate. Install the appropriate tools for your use case:
+.PP
+.IP \(bu 2
+Rust: rustc, cargo (optional: clippy)
+.IP \(bu 2
+C/C++: gcc, g++
+.IP \(bu 2
+Python: python3 (optional: mypy, pylint)
+.IP \(bu 2
+JavaScript/TypeScript: node, npm, tsc
+.IP \(bu 2
+Java: javac, JDK
+.IP \(bu 2
+Go: go compiler
+.IP \(bu 2
+Shell: shellcheck
+.IP \(bu 2
+Markup: jq, yamllint, tidy
+.PP
+See the project README for complete installation instructions.
 .SH FILES
 .TP
 .I ~/.config/synx/config.toml
-Default configuration file location
+User-specific configuration file
+.TP
+.I ./synx.toml
+Project-specific configuration file
+.TP
+.I ~/.cache/synx/
+Cache directory for validation results
+.SH ENVIRONMENT VARIABLES
+.TP
+.B SYNX_CONFIG
+Override default configuration file path
+.TP
+.B SYNX_CACHE_DIR
+Override default cache directory
+.TP
+.B SYNX_LOG_LEVEL
+Set logging level (error, warn, info, debug, trace)
+.SH SEE ALSO
+.BR rustc (1),
+.BR gcc (1),
+.BR node (1),
+.BR python3 (1),
+.BR shellcheck (1),
+.BR jq (1),
+.BR yamllint (1)
 .SH AUTHOR
-Written by Alex <alexngugi.dev@gmail.com>
-.SH BUGS
-Report bugs at: https://github.com/A5873/synx/issues
+Written by Alex \(laqueue alexngugi.dev@gmail.com \(raqueue
+.SH REPORTING BUGS
+Report bugs, feature requests, and contribute at:
+.UR https://github.com/A5873/synx
+.UE
+.PP
+When reporting bugs, please include:
+.IP \(bu 2
+synx version (synx --version)
+.IP \(bu 2
+Operating system and version
+.IP \(bu 2
+Command that caused the issue
+.IP \(bu 2
+Expected vs actual behavior
 .SH COPYRIGHT
-Copyright © 2025 Alex. Licensed under MIT.
+Copyright © 2025 Alex. Licensed under the MIT License.
+.PP
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.

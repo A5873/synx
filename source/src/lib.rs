@@ -65,22 +65,13 @@ pub fn run(files: &[String], config: &config::Config) -> Result<bool> {
     
     let mut overall_success = true;
     
-    // Convert config to ValidationConfig
-    let validation_config = ValidationConfig {
+    // Create validation options for built-in validators
+    let validation_options = validators::ValidationOptions {
         strict: config.strict,
         verbose: config.verbose,
-        config_path: None, // Not used in this context
-        watch: config.watch,
-        security: SecurityConfig {
-            audit_log: None, // Not used in this context
-            max_file_size: 10 * 1024 * 1024, // 10MB
-            allowed_dirs: vec![], // Allow all directories for now
-            strict_security: false,
-        },
+        timeout: 30, // 30 second timeout
+        config: Some(validators::FileValidationConfig::default()),
     };
-    
-    // Create validator
-    let mut validator = Validator::new(validation_config)?;
     
     for file_path in files {
         let path = Path::new(file_path);
@@ -95,7 +86,8 @@ pub fn run(files: &[String], config: &config::Config) -> Result<bool> {
             println!("🔍 Validating: {}", file_path);
         }
         
-        match validator.validate_file(path) {
+        // Use built-in validators instead of external tools
+        match validators::validate_file(path, &validation_options) {
             Ok(success) => {
                 if success {
                     if config.verbose {
