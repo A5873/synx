@@ -136,10 +136,6 @@ overflow-checks = true
 # Enable debug information
 debug = true
 
-[workspace]
-members = [
-    "source",
-]
 [[bin]]
 name = "synx"
 path = "src/main.rs"
