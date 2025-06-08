@@ -55,6 +55,67 @@ pub struct ValidationConfig {
     pub security: SecurityConfig,
 }
 
+/// Main entry point for running validation on files
+pub fn run(files: &[String], config: &config::Config) -> Result<bool> {
+    use std::path::Path;
+    
+    if files.is_empty() {
+        return Err(anyhow::anyhow!("No files specified for validation"));
+    }
+    
+    let mut overall_success = true;
+    
+    // Convert config to ValidationConfig
+    let validation_config = ValidationConfig {
+        strict: config.strict,
+        verbose: config.verbose,
+        config_path: None, // Not used in this context
+        watch: config.watch,
+        security: SecurityConfig {
+            audit_log: None, // Not used in this context
+            max_file_size: 10 * 1024 * 1024, // 10MB
+            allowed_dirs: vec![], // Allow all directories for now
+            strict_security: false,
+        },
+    };
+    
+    // Create validator
+    let mut validator = Validator::new(validation_config)?;
+    
+    for file_path in files {
+        let path = Path::new(file_path);
+        
+        if !path.exists() {
+            eprintln!("❌ File not found: {}", file_path);
+            overall_success = false;
+            continue;
+        }
+        
+        if config.verbose {
+            println!("🔍 Validating: {}", file_path);
+        }
+        
+        match validator.validate_file(path) {
+            Ok(success) => {
+                if success {
+                    if config.verbose {
+                        println!("✅ {}: Validation passed", file_path);
+                    }
+                } else {
+                    println!("❌ {}: Validation failed", file_path);
+                    overall_success = false;
+                }
+            }
+            Err(e) => {
+                eprintln!("❌ {}: Error during validation: {}", file_path, e);
+                overall_success = false;
+            }
+        }
+    }
+    
+    Ok(overall_success)
+}
+
 /// Security-specific configuration
 #[derive(Debug, Clone)]
 pub struct SecurityConfig {
