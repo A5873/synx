@@ -13,6 +13,7 @@ use crate::config;
 pub struct ValidationOptions {
     pub strict: bool,
     pub verbose: bool,
+    pub timeout: u64,
     
     // Extended options from configuration system
     pub config: Option<config::Config>,
@@ -28,7 +29,7 @@ pub fn validate_file(file_path: &Path, options: &ValidationOptions) -> Result<bo
         }
         
         // Check file mappings if present
-        if let Some(file_mappings) = &config.file_mappings {
+        if let Some(file_mappings) = config.file_mappings.as_ref() {
             if let Some(file_name) = file_path.file_name() {
                 if let Some(file_name_str) = file_name.to_str() {
                     if let Some(mapped_type) = file_mappings.get(file_name_str) {
@@ -239,12 +240,88 @@ fn validate_csharp(file_path: &Path, options: &ValidationOptions) -> Result<bool
     Ok(!options.strict)
 }
 
-fn validate_c(file_path: &Path, options: &ValidationOptions) -> Result<bool> {
-<<<<<<< HEAD
+fn validate_cpp(file_path: &Path, options: &ValidationOptions) -> Result<bool> {
     let mut cmd = Command::new("g++");
-=======
+    cmd.arg("-fsyntax-only")
+       .arg("-Wall")
+       .arg("-pedantic");
+
+    // Add include paths from config if available
+    if let Some(config) = &options.config {
+        if let Some(include_paths) = &config.validators.cpp.include_paths {
+            for path in include_paths {
+                cmd.arg(format!("-I{}", path));
+            }
+        }
+        
+        // Apply C++ standard from config if available
+        if let Some(standard) = &config.validators.cpp.standard {
+            cmd.arg(format!("-std={}", standard));
+        }
+    }
+
+    if options.strict {
+        cmd.arg("-Werror")
+           .arg("-Wextra")
+           .arg("-Wconversion")
+           .arg("-Wformat=2")
+           .arg("-Wuninitialized")
+           .arg("-Wnon-virtual-dtor")  // C++ specific: warn about non-virtual destructors
+           .arg("-Woverloaded-virtual"); // C++ specific: warn about overloaded virtual functions
+    }
+
+    cmd.arg(file_path);
+    let output = cmd.output()?;
+    let success = output.status.success();
+
+    if !success && options.verbose {
+        eprintln!("C++ validation errors:");
+        if !output.stderr.is_empty() {
+            eprintln!("{}", String::from_utf8_lossy(&output.stderr));
+        }
+    }
+
+    // In strict mode, also check for memory leaks with valgrind if applicable
+    if success && options.strict {
+        // Check if file is executable by compiling it first
+        let temp_dir = tempfile::Builder::new()
+                        .prefix("synx-cpp-check")
+                        .tempdir()?;
+        let output_path = temp_dir.path().join("a.out");
+        
+        let compile_output = Command::new("g++")
+            .arg("-o")
+            .arg(&output_path)
+            .arg(file_path)
+            .output();
+            
+        if let Ok(output) = compile_output {
+            if output.status.success() {
+                // Check if valgrind is available
+                if Command::new("valgrind").arg("--version").output().is_ok() {
+                    let valgrind_output = Command::new("valgrind")
+                        .arg("--leak-check=full")
+                        .arg("--error-exitcode=1")
+                        .arg(&output_path)
+                        .output()?;
+                        
+                    if !valgrind_output.status.success() && options.verbose {
+                        eprintln!("Memory leak detected:");
+                        eprintln!("{}", String::from_utf8_lossy(&valgrind_output.stderr));
+                        return Ok(false);
+                    }
+                } else if options.verbose {
+                    eprintln!("Note: Valgrind not available, skipping memory leak check");
+                }
+            }
+        }
+    }
+
+    Ok(success)
+}
+
+fn validate_c(file_path: &Path, options: &ValidationOptions) -> Result<bool> {
     let mut cmd = Command::new("gcc");
->>>>>>> feature/config-system-backup
     cmd.arg("-fsyntax-only")
        .arg("-Wall")
        .arg("-pedantic");
@@ -260,22 +337,6 @@ fn validate_c(file_path: &Path, options: &ValidationOptions) -> Result<bool> {
         // Apply C standard from config if available
         if let Some(standard) = &config.validators.c.standard {
             cmd.arg(format!("-std={}", standard));
-        }
-    }
-
-    // Apply C++ standard from config if available
-    if let Some(config) = &options.config {
-        if let Some(standard) = &config.validators.cpp.standard {
-            cmd.arg(format!("-std={}", standard));
-        }
-    }
-    
-    // Add include paths from config if available
-    if let Some(config) = &options.config {
-        if let Some(include_paths) = &config.validators.cpp.include_paths {
-            for path in include_paths {
-                cmd.arg(format!("-I{}", path));
-            }
         }
     }
 
@@ -820,9 +881,6 @@ fn validate_dockerfile(file_path: &Path, options: &ValidationOptions) -> Result<
 
     Ok(success)
 }
-<<<<<<< HEAD
-
-<<<<<<< HEAD
 fn validate_custom(file_path: &Path, options: &ValidationOptions, custom_config: &config::CustomValidatorConfig) -> Result<bool> {
     // Set up the command
     let mut cmd = Command::new(&custom_config.command);
@@ -852,23 +910,59 @@ fn validate_custom(file_path: &Path, options: &ValidationOptions, custom_config:
     cmd.arg(file_path);
     
     // Get timeout from config or use default
-    let timeout_secs = if let Some(config) = &options.config {
-        config.general.timeout.unwrap_or(30)
-    } else {
-        30 // Default timeout in seconds
-    };
+    let timeout_secs = options.config.as_ref()
+        .and_then(|config| config.timeout)
+        .unwrap_or(30);
     
     // Execute with timeout using wait_timeout crate
     let mut child = cmd.spawn().context("Failed to execute custom validator command")?;
     
-    // Create a timeout future
-    let status = match child.wait() {
-        Ok(status) => status,
-        Err(e) => {
+    // Use timeout from validation options
+    let timeout_duration = Duration::from_secs(timeout_secs);
+    
+    // Create a timeout channel
+    let (tx, rx) = std::sync::mpsc::channel();
+    
+    // Spawn a thread to handle timeout
+    let child_id = child.id();
+    std::thread::spawn(move || {
+        std::thread::sleep(timeout_duration);
+        let _ = tx.send(());
+        
+        // Try to kill the process if it's still running
+        #[cfg(unix)]
+        {
+            use std::process::Command;
+            let _ = Command::new("kill").arg(format!("{}", child_id)).output();
+        }
+        
+        #[cfg(windows)]
+        {
+            use std::process::Command;
+            let _ = Command::new("taskkill").arg("/F").arg("/PID").arg(format!("{}", child_id)).output();
+        }
+    });
+    
+    // Wait for process completion or timeout
+    let status = match rx.recv_timeout(timeout_duration) {
+        Ok(_) => {
+            // Timeout occurred
             if options.verbose {
-                eprintln!("Error executing custom validator: {}", e);
+                eprintln!("Custom validator timed out after {} seconds", timeout_secs);
             }
-            return Err(anyhow!("Failed to wait for custom validator: {}", e));
+            return Ok(false);
+        },
+        Err(_) => {
+            // Process completed before timeout
+            match child.wait() {
+                Ok(status) => status,
+                Err(e) => {
+                    if options.verbose {
+                        eprintln!("Error executing custom validator: {}", e);
+                    }
+                    return Err(anyhow!("Failed to wait for custom validator: {}", e));
+                }
+            }
         }
     };
     
@@ -900,65 +994,7 @@ fn validate_custom(file_path: &Path, options: &ValidationOptions, custom_config:
                     if options.verbose {
                         eprintln!("Invalid success pattern regex: {}", e);
                     }
-=======
-fn validate_c(file_path: &Path, options: &ValidationOptions) -> Result<bool> {
-    let mut cmd = Command::new("gcc");
-    cmd.arg("-fsyntax-only")
-       .arg("-Wall")
-       .arg("-pedantic");
-
-    if options.strict {
-        cmd.arg("-Werror")
-           .arg("-Wextra")
-           .arg("-Wconversion")
-           .arg("-Wformat=2")
-           .arg("-Wuninitialized")
-           .arg("-Wmissing-prototypes");
-    }
-
-    cmd.arg(file_path);
-    let output = cmd.output()?;
-    let success = output.status.success();
-
-    if !success && options.verbose {
-        eprintln!("C validation errors:");
-        if !output.stderr.is_empty() {
-            eprintln!("{}", String::from_utf8_lossy(&output.stderr));
-        }
-    }
-
-    // In strict mode, also check for memory leaks with valgrind if applicable
-    if success && options.strict {
-        // Check if file is executable by compiling it first
-        let temp_dir = tempfile::Builder::new()
-                        .prefix("synx-c-check")
-                        .tempdir()?;
-        let output_path = temp_dir.path().join("a.out");
-        
-        let compile_output = Command::new("gcc")
-            .arg("-o")
-            .arg(&output_path)
-            .arg(file_path)
-            .output();
-            
-        if let Ok(output) = compile_output {
-            if output.status.success() {
-                // Check if valgrind is available
-                if Command::new("valgrind").arg("--version").output().is_ok() {
-                    let valgrind_output = Command::new("valgrind")
-                        .arg("--leak-check=full")
-                        .arg("--error-exitcode=1")
-                        .arg(&output_path)
-                        .output()?;
-                        
-                    if !valgrind_output.status.success() && options.verbose {
-                        eprintln!("Memory leak detected:");
-                        eprintln!("{}", String::from_utf8_lossy(&valgrind_output.stderr));
-                        return Ok(false);
-                    }
-                } else if options.verbose {
-                    eprintln!("Note: Valgrind not available, skipping memory leak check");
->>>>>>> origin/feature/missing-validators
+                    // Continue with regular validation
                 }
             }
         }
@@ -1214,7 +1250,6 @@ fn validate_javascript(file_path: &Path, options: &ValidationOptions) -> Result<
     Ok(true)
 }
 
->>>>>>> origin/feature/missing-validators
 fn validate_unknown(file_path: &Path, options: &ValidationOptions) -> Result<bool> {
     if options.verbose {
         eprintln!("No validator available for file: {}", file_path.display());
@@ -1242,6 +1277,8 @@ mod tests {
         let options = ValidationOptions {
             strict: false,
             verbose: false,
+            timeout: 30,
+            config: None,
         };
         let result = validate_c(&file_path, &options).unwrap();
         assert!(result, "Valid C file should pass validation");
@@ -1253,6 +1290,8 @@ mod tests {
         let options = ValidationOptions {
             strict: false,
             verbose: false,
+            timeout: 30,
+            config: None,
         };
         let result = validate_c(&file_path, &options).unwrap();
         assert!(!result, "Invalid C file should fail validation");
@@ -1264,6 +1303,8 @@ mod tests {
         let options = ValidationOptions {
             strict: true,
             verbose: false,
+            timeout: 30,
+            config: None,
         };
         let result = validate_c(&file_path, &options).unwrap();
         assert!(result, "Valid C file should pass strict validation");
@@ -1276,6 +1317,8 @@ mod tests {
         let options = ValidationOptions {
             strict: false,
             verbose: false,
+            timeout: 30,
+            config: None,
         };
         let result = validate_csharp(&file_path, &options).unwrap();
         assert!(result, "Valid C# file should pass validation");
@@ -1287,6 +1330,8 @@ mod tests {
         let options = ValidationOptions {
             strict: false,
             verbose: false,
+            timeout: 30,
+            config: None,
         };
         let result = validate_csharp(&file_path, &options).unwrap();
         assert!(!result, "Invalid C# file should fail validation");
@@ -1299,6 +1344,8 @@ mod tests {
         let options = ValidationOptions {
             strict: false,
             verbose: false,
+            timeout: 30,
+            config: None,
         };
         let result = validate_python(&file_path, &options).unwrap();
         assert!(result, "Valid Python file should pass validation");
@@ -1310,6 +1357,8 @@ mod tests {
         let options = ValidationOptions {
             strict: false,
             verbose: false,
+            timeout: 30,
+            config: None,
         };
         let result = validate_python(&file_path, &options).unwrap();
         // Even with syntax errors, basic Python validation might pass as long as it's valid Python
@@ -1323,6 +1372,8 @@ mod tests {
         let options = ValidationOptions {
             strict: true,
             verbose: false,
+            timeout: 30,
+            config: None,
         };
         let result = validate_python(&file_path, &options).unwrap();
         // In strict mode with pylint and mypy, this should fail
@@ -1336,6 +1387,8 @@ mod tests {
         let options = ValidationOptions {
             strict: false,
             verbose: false,
+            timeout: 30,
+            config: None,
         };
         let result = validate_javascript(&file_path, &options).unwrap();
         assert!(result, "Valid JavaScript file should pass validation");
@@ -1347,6 +1400,8 @@ mod tests {
         let options = ValidationOptions {
             strict: false,
             verbose: true, // Use verbose to see the errors
+            timeout: 30,
+            config: None,
         };
         let result = validate_javascript(&file_path, &options).unwrap();
         // Basic syntax check may still pass as the JS has valid syntax but ESLint issues
@@ -1359,6 +1414,8 @@ mod tests {
         let options = ValidationOptions {
             strict: true,
             verbose: false,
+            timeout: 30,
+            config: None,
         };
         let result = validate_javascript(&file_path, &options).unwrap();
         // In strict mode with ESLint, this should fail

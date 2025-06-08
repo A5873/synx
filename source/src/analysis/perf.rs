@@ -20,11 +20,17 @@ use crate::detectors::FileType;
 use crate::config::Config;
 use crate::analysis::{
     Analyzer, AnalysisOptions, AnalysisResult, AnalysisDetails, PerformanceDetails,
-    AnalysisIssue, IssueSeverity, AnalysisLevel, AnalysisType
+    AnalysisIssue, IssueSeverity, AnalysisLevel, AnalysisType, HotspotFunction
 };
 
 /// CPU Profiler using Linux perf or compatible tools
 pub struct PerfCpuProfiler;
+
+impl PerfCpuProfiler {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
 
 impl Analyzer for PerfCpuProfiler {
     fn name(&self) -> &str {
@@ -333,5 +339,140 @@ edition = "2021"
         // Parse CPU events from stat output
         for line in stat_text.lines() {
             // Lines with events typically start with a number
-            if let Some(first_char
+            if let Some(first_char) = line.chars().next() {
+                if first_char.is_digit(10) {
+                    // Parse event data
+                    let parts: Vec<&str> = line.split_whitespace().collect();
+                    if parts.len() >= 2 {
+                        let count_str = parts[0].replace(",", "");
+                        if let Ok(count) = count_str.parse::<u64>() {
+                            let event_name = if parts.len() >= 3 {
+                                parts[1].to_string()
+                            } else {
+                                "unknown".to_string()
+                            };
+                            cpu_events.insert(event_name, count);
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Parse hotspots from report text
+        for line in report_text.lines() {
+            if line.contains("%") && !line.starts_with("#") {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if parts.len() >= 3 {
+                    if let Ok(percentage) = parts[0].trim_end_matches('%').parse::<f64>() {
+                        if percentage >= 1.0 {  // Only include functions with at least 1% CPU time
+                            let function_name = if parts.len() >= 4 {
+                                parts[3].to_string()
+                            } else {
+                                parts[2].to_string()
+                            };
+                            
+                            hotspots.push(HotspotFunction {
+                                name: function_name.clone(),
+                                cpu_percentage: percentage,
+                                call_count: 0,  // We don't have this info from perf report
+                            });
+                            
+                            function_times.insert(function_name, percentage);
+                        }
+                    }
+                }
+            }
+        }
+        
+        Ok(PerformanceDetails {
+            cpu_usage,
+            execution_time,
+            user_time,
+            system_time,
+            function_times,
+            hotspots,
+            cpu_events,
+        })
+    }
 
+    /// Identify potential performance issues from profiling data
+    fn identify_performance_issues(&self, perf_details: &PerformanceDetails) -> Vec<AnalysisIssue> {
+        let mut issues = Vec::new();
+        
+        // Check for CPU usage issues
+        if perf_details.cpu_usage > 90.0 {
+            issues.push(AnalysisIssue {
+                title: "High CPU Usage".to_string(),
+                description: format!("CPU usage is very high at {:.1}%", perf_details.cpu_usage),
+                severity: IssueSeverity::Medium,
+                location: None,
+                suggestion: Some("Consider optimizing the most CPU-intensive functions".to_string()),
+                analysis_type: AnalysisType::Performance,
+                locations: Vec::new(),
+            });
+        }
+        
+        // Check for cache issues
+        if let Some(cache_misses) = perf_details.cpu_events.get("cache-misses") {
+            if let Some(cache_refs) = perf_details.cpu_events.get("cache-references") {
+                if *cache_refs > 0 {
+                    let miss_rate = (*cache_misses as f64 / *cache_refs as f64) * 100.0;
+                    if miss_rate > 20.0 {
+                        issues.push(AnalysisIssue {
+                            title: "High Cache Miss Rate".to_string(),
+                            description: format!("Cache miss rate is {:.1}%", miss_rate),
+                            severity: IssueSeverity::Medium,
+                            location: None,
+                            suggestion: Some("Consider improving data locality and access patterns".to_string()),
+                            analysis_type: AnalysisType::Performance,
+                            locations: Vec::new(),
+                        });
+                    }
+                }
+            }
+        }
+        
+        // Check for branch misprediction issues
+        if let Some(branch_misses) = perf_details.cpu_events.get("branch-misses") {
+            if let Some(branch_insts) = perf_details.cpu_events.get("branch-instructions") {
+                if *branch_insts > 0 {
+                    let miss_rate = (*branch_misses as f64 / *branch_insts as f64) * 100.0;
+                    if miss_rate > 10.0 {
+                        issues.push(AnalysisIssue {
+                            title: "High Branch Misprediction Rate".to_string(),
+                            description: format!("Branch misprediction rate is {:.1}%", miss_rate),
+                            severity: IssueSeverity::Medium,
+                            location: None,
+                            suggestion: Some("Consider simplifying conditional logic or implementing branch prediction hints".to_string()),
+                            analysis_type: AnalysisType::Performance,
+                            locations: Vec::new(),
+                        });
+                    }
+                }
+            }
+        }
+        
+        // Check for instruction per cycle (IPC) issues
+        if let (Some(instructions), Some(cycles)) = (
+            perf_details.cpu_events.get("instructions"),
+            perf_details.cpu_events.get("cycles")
+        ) {
+            if *cycles > 0 {
+                let ipc = *instructions as f64 / *cycles as f64;
+                if ipc < 0.7 {
+                    issues.push(AnalysisIssue {
+                        title: "Low Instructions Per Cycle".to_string(),
+                        description: format!("IPC is low at {:.2}", ipc),
+                        severity: IssueSeverity::Medium,
+                        location: None,
+                        suggestion: Some("Consider reducing memory stalls, improving parallelism, or reducing dependencies between instructions".to_string()),
+                        analysis_type: AnalysisType::Performance,
+                        locations: Vec::new(),
+                    });
+                }
+            }
+        }
+        
+        issues
+    }
+}

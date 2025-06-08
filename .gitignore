@@ -33,6 +33,7 @@ __pycache__/
 *.log
 *.tmp
 .env
+.synxrc
 
 packaging/deb/pool/**/*.tar.gz
 packaging/deb/pool/**/*.deb

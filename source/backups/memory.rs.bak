@@ -27,12 +27,6 @@ use crate::analysis::{
 /// Valgrind Memcheck analyzer for deep memory analysis
 pub struct Valgrind;
 
-impl Valgrind {
-    pub fn new() -> Self {
-        Self {}
-    }
-}
-
 impl Analyzer for Valgrind {
     fn name(&self) -> &str {
         "Valgrind Memory Analyzer"
@@ -50,7 +44,7 @@ impl Analyzer for Valgrind {
         }
     }
     
-    fn analyze(&self, file_path: &Path, options: &AnalysisOptions) -> Result<crate::analysis::traits::AnalysisResult> {
+    fn analyze(&self, file_path: &Path, options: &AnalysisOptions) -> Result<AnalysisResult> {
         let start_time = Instant::now();
         let verbose = options.verbose;
         
@@ -171,7 +165,7 @@ impl Analyzer for Valgrind {
         let duration = start_time.elapsed();
         
         // Create the analysis result
-        let result = crate::analysis::traits::AnalysisResult {
+        let result = AnalysisResult {
             analyzer_name: self.name().to_string(),
             success: true,
             duration,
@@ -479,9 +473,6 @@ edition = "2021"
                 ),
                 location: Some(leak.allocation_location.clone()),
                 suggestion: Some("Ensure all allocated memory is properly freed.".to_string()),
-                title: format!("Memory leak of {} bytes", leak.size),
-                analysis_type: AnalysisType::Memory,
-                locations: vec![leak.allocation_location.clone()],
             });
         }
         
@@ -496,9 +487,6 @@ edition = "2021"
                 ),
                 location: None,
                 suggestion: Some("Implement proper memory management and deallocation.".to_string()),
-                title: "Systematic memory leaks detected".to_string(),
-                analysis_type: AnalysisType::Memory,
-                locations: Vec::new(),
             });
         }
         
@@ -513,9 +501,6 @@ edition = "2021"
                 ),
                 location: None,
                 suggestion: Some("Consider optimizing memory usage for large data structures.".to_string()),
-                title: "High memory usage".to_string(),
-                analysis_type: AnalysisType::Memory,
-                locations: Vec::new(),
             });
         }
         
@@ -531,9 +516,6 @@ edition = "2021"
                     ),
                     location: Some(hotspot_fn.clone()),
                     suggestion: Some("Consider optimizing this function to reduce memory usage.".to_string()),
-                    title: format!("Memory allocation hotspot in '{}'", hotspot_fn),
-                    analysis_type: AnalysisType::Memory,
-                    locations: vec![hotspot_fn.clone()],
                 });
             }
         }
@@ -543,7 +525,7 @@ edition = "2021"
 }
 
 /// Helper functions for parsing XML
-fn find_xml_tag<'a>(content: &'a str, tag_name: &str) -> Option<&'a str> {
+fn find_xml_tag(content: &str, tag_name: &str) -> Option<&str> {
     let start_tag = format!("<{}>", tag_name);
     let end_tag = format!("</{}>", tag_name);
     
@@ -557,7 +539,7 @@ fn find_xml_tag<'a>(content: &'a str, tag_name: &str) -> Option<&'a str> {
     None
 }
 
-fn find_xml_tag_after<'a>(content: &'a str, tag_name: &str, after: &'a str) -> Option<&'a str> {
+fn find_xml_tag_after(content: &str, tag_name: &str, after: &str) -> Option<&str> {
     let offset = after.as_ptr() as usize - content.as_ptr() as usize;
     let remaining = &content[offset..];
     
@@ -574,7 +556,7 @@ fn find_xml_tag_after<'a>(content: &'a str, tag_name: &str, after: &'a str) -> O
     None
 }
 
-fn extract_xml_content<'a>(tag: &'a str, tag_name: &str) -> String {
+fn extract_xml_content(tag: &str, tag_name: &str) -> String {
     let start_tag = format!("<{}>", tag_name);
     let end_tag = format!("</{}>", tag_name);
     
@@ -968,7 +950,6 @@ rustflags = ["-Zsanitizer=address"]
             };
             
             issues.push(AnalysisIssue {
-                title: format!("Memory leak of {} bytes", leak.size),
                 severity,
                 description: format!(
                     "Memory leak of {} bytes at {}{}",
@@ -976,8 +957,6 @@ rustflags = ["-Zsanitizer=address"]
                 ),
                 location: Some(leak.allocation_location.clone()),
                 suggestion: Some("Ensure all allocated memory is properly freed.".to_string()),
-                analysis_type: AnalysisType::Memory,
-                locations: vec![leak.allocation_location.clone()],
             });
         }
         
@@ -1008,13 +987,10 @@ rustflags = ["-Zsanitizer=address"]
                 };
                 
                 issues.push(AnalysisIssue {
-                    title: "Use After Free Detected".to_string(),
                     severity: IssueSeverity::Critical,
                     description: format!("Heap use-after-free detected: {}", error_text),
-                    location: Some(location.clone()),
+                    location: Some(location),
                     suggestion: Some("Memory was used after being freed. Ensure proper memory management and avoid dangling pointers.".to_string()),
-                    analysis_type: AnalysisType::Memory,
-                    locations: vec![location],
                 });
             }
         }
@@ -1037,13 +1013,10 @@ rustflags = ["-Zsanitizer=address"]
                 };
                 
                 issues.push(AnalysisIssue {
-                    title: "Heap Buffer Overflow".to_string(),
                     severity: IssueSeverity::Critical,
                     description: format!("Heap buffer overflow detected: {}", error_text),
-                    location: Some(location.clone()),
+                    location: Some(location),
                     suggestion: Some("Buffer overflow detected. Ensure array bounds are properly checked and allocations are sufficiently sized.".to_string()),
-                    analysis_type: AnalysisType::Memory,
-                    locations: vec![location],
                 });
             }
         }
@@ -1066,13 +1039,10 @@ rustflags = ["-Zsanitizer=address"]
                 };
                 
                 issues.push(AnalysisIssue {
-                    title: "Stack Use After Return".to_string(),
                     severity: IssueSeverity::Critical,
                     description: format!("Stack use-after-return detected: {}", error_text),
-                    location: Some(location.clone()),
+                    location: Some(location),
                     suggestion: Some("A stack variable is being used after its scope has ended. Avoid returning pointers/references to stack variables.".to_string()),
-                    analysis_type: AnalysisType::Memory,
-                    locations: vec![location],
                 });
             }
         }
@@ -1095,13 +1065,10 @@ rustflags = ["-Zsanitizer=address"]
                 };
                 
                 issues.push(AnalysisIssue {
-                    title: "Global Buffer Overflow".to_string(),
                     severity: IssueSeverity::Critical,
                     description: format!("Global buffer overflow detected: {}", error_text),
-                    location: Some(location.clone()),
+                    location: Some(location),
                     suggestion: Some("Global buffer overflow detected. Ensure array bounds are properly checked.".to_string()),
-                    analysis_type: AnalysisType::Memory,
-                    locations: vec![location],
                 });
             }
         }
@@ -1586,19 +1553,10 @@ impl RustMemoryLeakDetector {
             };
             
             issues.push(AnalysisIssue {
-                title: format!("Memory safety issue: {}", if error_msg.contains("dangling reference") {
-                    "Dangling Reference"
-                } else if error_msg.contains("memory leak") {
-                    "Memory Leak"
-                } else {
-                    "Undefined Behavior"
-                }),
                 severity,
                 description: format!("Memory safety issue detected: {}", error_msg),
-                location: location.clone(),
+                location,
                 suggestion: Some(suggestion),
-                analysis_type: AnalysisType::Memory,
-                locations: location.map(|loc| vec![loc]).unwrap_or_default(),
             });
         }
         
@@ -1626,7 +1584,6 @@ impl RustMemoryLeakDetector {
             };
             
             issues.push(AnalysisIssue {
-                title: "Memory Management Issue".to_string(),
                 severity,
                 description: format!(
                     "Memory leak of {} bytes in Rust code at {}{}",
@@ -1634,8 +1591,6 @@ impl RustMemoryLeakDetector {
                 ),
                 location: Some(leak.allocation_location.clone()),
                 suggestion: Some("Check for missing Drop implementations, forgotten Rc/Arc cycles, or forgotten Box/Vec allocations.".to_string()),
-                analysis_type: AnalysisType::Memory,
-                locations: vec![leak.allocation_location.clone()],
             });
         }
         
@@ -1643,18 +1598,15 @@ impl RustMemoryLeakDetector {
         if !memory_details.allocation_hotspots.is_empty() {
             let (hotspot_fn, bytes) = &memory_details.allocation_hotspots[0];
             if *bytes > 1_000_000 {
-            issues.push(AnalysisIssue {
-                title: format!("Memory Hotspot: {}", hotspot_fn),
-                severity: IssueSeverity::Medium,
-                description: format!(
-                    "Memory allocation hotspot: function '{}' allocated {} bytes ({}MB)",
-                    hotspot_fn, bytes, bytes / 1_000_000
-                ),
-                location: Some(hotspot_fn.clone()),
-                suggestion: Some("Consider optimizing allocations in this function. Use custom allocators, pre-allocation, or memory pooling.".to_string()),
-                analysis_type: AnalysisType::Memory,
-                locations: vec![hotspot_fn.clone()],
-            });
+                issues.push(AnalysisIssue {
+                    severity: IssueSeverity::Medium,
+                    description: format!(
+                        "Memory allocation hotspot: function '{}' allocated {} bytes ({}MB)",
+                        hotspot_fn, bytes, bytes / 1_000_000
+                    ),
+                    location: Some(hotspot_fn.clone()),
+                    suggestion: Some("Consider optimizing allocations in this function. Use custom allocators, pre-allocation, or memory pooling.".to_string()),
+                });
             }
         }
         
@@ -1662,7 +1614,6 @@ impl RustMemoryLeakDetector {
         if memory_details.total_allocations > 0 && 
            memory_details.total_deallocations == 0 {
             issues.push(AnalysisIssue {
-                title: "Systematic Memory Leaks Detected".to_string(),
                 severity: IssueSeverity::High,
                 description: format!(
                     "No memory deallocations detected despite {} allocations. This suggests systematic memory leaks.",
@@ -1670,8 +1621,6 @@ impl RustMemoryLeakDetector {
                 ),
                 location: None,
                 suggestion: Some("Implement proper Drop traits or ensure manual memory management is correct.".to_string()),
-                analysis_type: AnalysisType::Memory,
-                locations: Vec::new(),
             });
         }
         
@@ -1731,9 +1680,8 @@ impl Analyzer for PythonMemoryAnalyzer {
         
         // Create a wrapper script for tracemalloc
         let tracemalloc_path = temp_dir.path().join("tracemalloc_wrapper.py");
-        let output_dir_path = Path::new(&output_dir);
-        let tracemalloc_content = self.generate_tracemalloc_wrapper(file_name, output_dir_path)?;
-        fs::write(&tracemalloc_path, &tracemalloc_content)?;
+        let tracemalloc_content = self.generate_tracemalloc_wrapper(file_name, &output_dir);
+        fs::write(&tracemalloc_path, tracemalloc_content).context("Failed to write tracemalloc wrapper")?;
         
         // Run both wrappers
         let mut report_files = Vec::new();
@@ -1819,59 +1767,6 @@ impl Analyzer for PythonMemoryAnalyzer {
 }
 
 impl PythonMemoryAnalyzer {
-    /// Generate a tracemalloc wrapper script for memory profiling
-    fn generate_tracemalloc_wrapper(&self, file_name: &str, output_dir: &Path) -> Result<String> {
-        Ok(format!(r#"
-import tracemalloc
-import sys
-import os
-import linecache
-from pathlib import Path
-
-# Start tracemalloc
-tracemalloc.start()
-
-# Import and run the target file
-file_path = "{}"
-output_file = str(Path("{}") / "tracemalloc_snapshot.txt")
-
-try:
-    # Remove .py extension if present
-    module_name = Path(file_path).stem
-    
-    # Add directory to Python path
-    sys.path.insert(0, str(Path(file_path).parent))
-    
-    # Import and run the module
-    __import__(module_name)
-    
-    # Take snapshot and get statistics
-    snapshot = tracemalloc.take_snapshot()
-    top_stats = snapshot.statistics('lineno')
-    
-    # Write results
-    with open(output_file, 'w') as f:
-        f.write("Memory Trace Results:\n\n")
-        for stat in top_stats:
-            frame = stat.traceback[0]
-            f.write(f"{{stat.size}} bytes allocated at {{frame.filename}}:{{frame.lineno}}\n")
-            line = linecache.getline(frame.filename, frame.lineno).strip()
-            if line:
-                f.write(f"    {{line}}\n")
-        
-        # Get current memory blocks
-        f.write("\nCurrent Memory Blocks:\n")
-        for block in snapshot.traces_by_lineno:
-            f.write(f"Size: {{block.size}} bytes\n")
-            for frame in block.traceback:
-                f.write(f"    {{frame.filename}}:{{frame.lineno}}\n")
-
-except Exception as e:
-    print(f"Error in tracemalloc analysis: {{e}}", file=sys.stderr)
-    sys.exit(1)
-"#, file_name, output_dir.display()))
-    }
-
     /// Generate a wrapper script for memory_profiler
     fn generate_memory_profiler_wrapper(&self, file_name: &str, output_dir: &str) -> String {
         format!(r##"
@@ -2138,11 +2033,6 @@ except Exception as e:
             };
             
             issues.push(AnalysisIssue {
-                title: format!("Python memory issue: {}", if leak.allocation_location.contains("Circular reference") {
-                    "Circular Reference"
-                } else {
-                    "Memory Leak"
-                }),
                 severity,
                 description: format!(
                     "Potential memory issue: {}{}",
@@ -2150,8 +2040,6 @@ except Exception as e:
                 ),
                 location: Some(leak.allocation_location.clone()),
                 suggestion: Some(suggestion),
-                analysis_type: AnalysisType::Memory,
-                locations: vec![leak.allocation_location.clone()],
             });
         }
         
@@ -2162,7 +2050,6 @@ except Exception as e:
             for (i, (hotspot, bytes)) in top_hotspots.enumerate() {
                 if *bytes > 1_000_000 {
                     issues.push(AnalysisIssue {
-                        title: format!("Memory Hotspot #{}", i+1),
                         severity: IssueSeverity::Medium,
                         description: format!(
                             "Memory allocation hotspot #{}: {} allocated {} bytes ({}MB)",
@@ -2170,8 +2057,6 @@ except Exception as e:
                         ),
                         location: Some(hotspot.clone()),
                         suggestion: Some("Consider optimizing memory usage in this area. Use generators, iterate instead of loading entire collections, or implement data streaming.".to_string()),
-                        analysis_type: AnalysisType::Memory,
-                        locations: vec![hotspot.clone()],
                     });
                 }
             }
@@ -2180,7 +2065,6 @@ except Exception as e:
         // Check for high overall memory usage
         if memory_details.peak_memory > 100_000_000 { // 100 MB
             issues.push(AnalysisIssue {
-                title: "High Memory Usage".to_string(),
                 severity: IssueSeverity::Medium,
                 description: format!(
                     "High peak memory usage: {} bytes ({}MB)",
@@ -2189,8 +2073,6 @@ except Exception as e:
                 ),
                 location: None,
                 suggestion: Some("Consider optimizing overall memory usage. Use streaming for large data, chunking for processing, or more memory-efficient data structures.".to_string()),
-                analysis_type: AnalysisType::Memory,
-                locations: Vec::new(),
             });
         }
         
@@ -2213,7 +2095,6 @@ except Exception as e:
             
             if consistently_increasing && last > first * 2 {
                 issues.push(AnalysisIssue {
-                    title: "Memory Leak: Growing Memory Usage".to_string(),
                     severity: IssueSeverity::High,
                     description: format!(
                         "Memory usage consistently increases over time from {}MB to {}MB, suggesting a memory leak",
@@ -2222,8 +2103,6 @@ except Exception as e:
                     ),
                     location: None,
                     suggestion: Some("Check for unbounded growth in collections, caches without size limits, or failure to release resources. Consider using memory_profiler line by line to identify leaking code.".to_string()),
-                    analysis_type: AnalysisType::Memory,
-                    locations: Vec::new(),
                 });
             }
         }
