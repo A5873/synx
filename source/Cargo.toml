@@ -146,10 +146,6 @@ overflow-checks = true
 debug = true
 
 [[bin]]
-name = "scan_demo"
-path = "src/bin/scan_demo.rs"
-
-[[bin]]
 name = "synx"
 path = "src/main.rs"
 
