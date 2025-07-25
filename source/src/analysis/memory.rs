@@ -10,15 +10,12 @@
 
 use std::path::Path;
 use std::process::Command;
-use std::collections::HashMap;
 use std::time::{Duration, Instant};
-use std::io::{self, Write};
-use std::fs::{self, File};
+use std::fs::{self};
 use tempfile::TempDir;
 use anyhow::{Result, Context, anyhow};
 
 use crate::detectors::FileType;
-use crate::config::Config;
 use crate::analysis::{
     Analyzer, AnalysisOptions, AnalysisResult, AnalysisDetails, MemoryDetails, MemoryLeak,
     AnalysisIssue, IssueSeverity, AnalysisLevel, AnalysisType
@@ -849,10 +846,10 @@ rustflags = ["-Zsanitizer=address"]
     fn parse_asan_results(&self, asan_output: &str) -> Result<MemoryDetails> {
         let mut peak_memory = 0;
         let mut total_allocations = 0;
-        let mut total_deallocations = 0;
+        let total_deallocations = 0;
         let mut leaks = Vec::new();
-        let mut allocation_hotspots = Vec::new();
-        let mut heap_usage_timeline = Vec::new();
+        let allocation_hotspots = Vec::new();
+        let heap_usage_timeline = Vec::new();
         
         // Check for memory leaks
         if asan_output.contains("LeakSanitizer") {
@@ -1958,7 +1955,7 @@ except Exception as e:
     fn parse_python_memory_results(&self, memory_profile: &str, tracemalloc: &str, object_lifetime: &str) -> Result<MemoryDetails> {
         let mut peak_memory = 0;
         let mut total_allocations = 0;
-        let mut total_deallocations = 0;
+        let total_deallocations = 0;
         let mut leaks = Vec::new();
         let mut allocation_hotspots = Vec::new();
         let mut heap_usage_timeline = Vec::new();

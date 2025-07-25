@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use std::process::Command;
 use anyhow::{Result, anyhow, Context};
 use serde::{Serialize, Deserialize};
-use log::{debug, warn, error};
 use blake3;
 
 use super::secure::SecureCommand;

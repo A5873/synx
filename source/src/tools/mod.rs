@@ -29,9 +29,8 @@ pub use policy::{
 };
 pub use audit::AuditConfig;
 
-use std::path::{Path, PathBuf};
-use anyhow::{Result, Context};
-use log::{debug, warn, error};
+use std::path::Path;
+use anyhow::Result;
 
 /// Main tool manager that coordinates all security components
 pub struct ToolManager {
@@ -224,7 +223,7 @@ mod tests {
 
     #[test]
     fn test_tool_execution() {
-        let manager = ToolManager::new(create_test_policy()).unwrap();
+        let mut manager = ToolManager::new(create_test_policy()).unwrap();
         
         // Test executing a basic command
         let output = manager.execute_tool(

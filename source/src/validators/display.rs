@@ -10,11 +10,10 @@ static FILE_MARK: Emoji<'_, '_> = Emoji("📄", "-");
 static FOLDER_MARK: Emoji<'_, '_> = Emoji("📁", "+");
 static SEARCH_MARK: Emoji<'_, '_> = Emoji("🔍", ">");
 
-pub fn display_scan_results(result: &ScanResult, root_dir: &Path) {
-    println!("\n{} {} Scan Results for: {}", 
+pub fn display_scan_results(result: &ScanResult) {
+    println!("\n{} {} Scan Results", 
         SEARCH_MARK,
-        "Directory".bright_blue().bold(),
-        root_dir.display().to_string().bright_white().underline()
+        "Directory".bright_blue().bold()
     );
 
     println!("\n{} Summary:", FOLDER_MARK);
@@ -58,24 +57,20 @@ pub fn display_scan_results(result: &ScanResult, root_dir: &Path) {
     if !result.invalid_files.is_empty() {
         println!("\n{} Invalid Files:", CROSS_MARK);
         for file in &result.invalid_files {
-            if let Some(relative) = file.strip_prefix(root_dir).ok() {
-                println!("  {} {}", 
-                    CROSS_MARK,
-                    relative.display().to_string().red()
-                );
-            }
+            println!("  {} {}", 
+                CROSS_MARK,
+                file.display().to_string().red()
+            );
         }
     }
 
     if !result.skipped_files.is_empty() {
         println!("\n{} Skipped Files:", WARN_MARK);
         for file in &result.skipped_files {
-            if let Some(relative) = file.strip_prefix(root_dir).ok() {
-                println!("  {} {}", 
-                    WARN_MARK,
-                    relative.display().to_string().yellow()
-                );
-            }
+            println!("  {} {}", 
+                WARN_MARK,
+                file.display().to_string().yellow()
+            );
         }
     }
 

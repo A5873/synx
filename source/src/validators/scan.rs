@@ -21,7 +21,7 @@ pub struct ScanResult {
     pub results_by_type: HashMap<String, TypeResult>,
 }
 
-#[derive(Default)]
+#[derive(Default, serde::Serialize)]
 pub struct TypeResult {
     pub total: usize,
     pub valid: usize,

@@ -1,11 +1,9 @@
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio, Child};
 use std::time::Duration;
-use std::collections::HashSet;
-use std::str::FromStr;
 use anyhow::{Result, anyhow, Context};
 use regex::Regex;
-use log::{debug, warn, error};
+use log::debug;
 use serde::{Serialize, Deserialize};
 
 // Platform-specific imports
@@ -17,8 +15,6 @@ use nix::sys::signal::{kill, Signal};
 #[cfg(unix)]
 use nix::unistd::Pid;
 
-#[cfg(target_os = "macos")]
-use std::ffi::CString;
 
 #[cfg(target_os = "windows")]
 use windows_sys::Win32::System::Threading::{
@@ -310,7 +306,7 @@ impl SecureCommand {
         // macOS: Apply sandbox profile if enabled
         #[cfg(target_os = "macos")]
         {
-            use std::os::unix::process::CommandExt;
+            
             
             // Only apply sandbox if the feature is enabled
             #[cfg(feature = "macos-security")]
