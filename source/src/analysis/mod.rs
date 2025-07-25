@@ -152,7 +152,6 @@ impl CodeAnalyzer {
             config,
             analysis_options,
         })
-        })
     }
 
     /// Analyze a file

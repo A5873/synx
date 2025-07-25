@@ -38,8 +38,13 @@ pub struct AuditConfig {
 
 impl Default for AuditConfig {
     fn default() -> Self {
+        // Use user's home directory for logs instead of system directory
+        let log_path = dirs::home_dir()
+            .map(|home| home.join(".config").join("synx").join("audit.log"))
+            .unwrap_or_else(|| PathBuf::from("./synx-audit.log"));
+            
         Self {
-            log_path: PathBuf::from("/var/log/synx/audit.log"),
+            log_path,
             max_log_size: 10 * 1024 * 1024, // 10MB
             log_retention: 5,
             sign_entries: true,
@@ -382,6 +387,11 @@ impl AuditLogger {
 
     /// Rotate log files if the current one exceeds the size limit
     fn rotate_logs_if_needed(&self) -> Result<()> {
+        // Check if log file exists before trying to get metadata
+        if !self.config.log_path.exists() {
+            return Ok(()); // No need to rotate if file doesn't exist
+        }
+        
         let metadata = std::fs::metadata(&self.config.log_path)
             .context("Failed to get log file metadata")?;
             
