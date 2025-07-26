@@ -39,7 +39,7 @@ pub fn display_scan_results(result: &ScanResult, root_dir: &Path) {
         println!("\n{} Results by File Type:", FOLDER_MARK);
         for (ext, type_result) in &result.results_by_type {
             let success_rate = (type_result.valid as f32 / type_result.total as f32 * 100.0) as i32;
-            let status_color = match success_rate {
+            let _status_color = match success_rate {
                 90..=100 => "green",
                 70..=89 => "yellow",
                 _ => "red"
