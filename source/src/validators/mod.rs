@@ -1,5 +1,5 @@
 use anyhow::{Result, anyhow};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::str;
 use std::collections::HashMap;
@@ -86,10 +86,106 @@ fn get_validator_for_type(file_type: &str) -> fn(&Path, &ValidationOptions) -> R
 }
 
 fn validate_rust(file_path: &Path, options: &ValidationOptions) -> Result<bool> {
+    if options.verbose {
+        eprintln!("Validating Rust file: {}", file_path.display());
+    }
+    
+    // First, try to find if this file is part of a Cargo project
+    if let Some(cargo_dir) = find_cargo_project_root(file_path) {
+        validate_rust_with_cargo(file_path, &cargo_dir, options)
+    } else {
+        if options.verbose {
+            eprintln!("No Cargo project found for {}, using standalone validation", file_path.display());
+        }
+        // Fall back to standalone rustc validation with basic syntax checking
+        validate_rust_standalone(file_path, options)
+    }
+}
+
+/// Find the Cargo project root by looking for Cargo.toml in parent directories
+fn find_cargo_project_root(file_path: &Path) -> Option<PathBuf> {
+    // Convert to absolute path first
+    let abs_path = std::fs::canonicalize(file_path).ok()?;
+    
+    // Start from the file's directory
+    let start_dir = if abs_path.is_file() {
+        abs_path.parent()?
+    } else {
+        &abs_path
+    };
+    
+    let mut current = start_dir;
+    
+    loop {
+        let cargo_toml = current.join("Cargo.toml");
+        if cargo_toml.exists() {
+            return Some(current.to_path_buf());
+        }
+        
+        current = current.parent()?;
+    }
+}
+
+/// Validate Rust file using Cargo (for project files)
+fn validate_rust_with_cargo(file_path: &Path, cargo_dir: &Path, options: &ValidationOptions) -> Result<bool> {
+    if options.verbose {
+        eprintln!("Using Cargo validation for {} in project {}", file_path.display(), cargo_dir.display());
+    }
+    
+    let mut cmd = Command::new("cargo");
+    cmd.current_dir(cargo_dir)
+       .arg("check")
+       .arg("--message-format=short");
+    
+    // For now, just run a general cargo check instead of trying to target specific binaries
+    // This will validate the entire project, which includes our file
+    
+    if options.strict {
+        // In strict mode, also run clippy if available
+        let clippy_available = Command::new("cargo")
+            .arg("clippy")
+            .arg("--version")
+            .output()
+            .map(|output| output.status.success())
+            .unwrap_or(false);
+            
+        if clippy_available {
+            cmd = Command::new("cargo");
+            cmd.current_dir(cargo_dir)
+               .arg("clippy")
+               .arg("--message-format=short")
+               .arg("--")
+               .arg("-D").arg("warnings");
+        } else {
+            // Fall back to cargo check with warnings as errors
+            cmd.env("RUSTFLAGS", "-D warnings");
+        }
+    }
+    
+    let output = cmd.output()?;
+    let success = output.status.success();
+    
+    if !success && options.verbose {
+        eprintln!("Rust validation errors:");
+        if !output.stderr.is_empty() {
+            eprintln!("{}", String::from_utf8_lossy(&output.stderr));
+        }
+        if !output.stdout.is_empty() {
+            eprintln!("{}", String::from_utf8_lossy(&output.stdout));
+        }
+    }
+    
+    Ok(success)
+}
+
+/// Validate standalone Rust file using rustc (for files outside projects)
+fn validate_rust_standalone(file_path: &Path, options: &ValidationOptions) -> Result<bool> {
     let mut cmd = Command::new("rustc");
     cmd.arg("--crate-type=lib")
        .arg("--error-format=short")
        .arg("-A").arg("dead_code")
+       .arg("-A").arg("unused_variables")
+       .arg("-A").arg("unused_imports")
        .arg(file_path);
 
     if options.strict {
@@ -100,7 +196,7 @@ fn validate_rust(file_path: &Path, options: &ValidationOptions) -> Result<bool> 
     let success = output.status.success();
     
     if !success && options.verbose {
-        eprintln!("Rust validation errors:");
+        eprintln!("Rust validation errors (standalone mode):");
         if !output.stderr.is_empty() {
             eprintln!("{}", String::from_utf8_lossy(&output.stderr));
         }
