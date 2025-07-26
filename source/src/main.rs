@@ -36,6 +36,10 @@ struct Args {
     /// Strict mode - treat warnings as errors
     #[arg(short = 's', long)]
     strict: bool,
+
+    /// Show detailed error information with code context
+    #[arg(long)]
+    show_errors: bool,
 }
 
 #[derive(Subcommand)]

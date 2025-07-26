@@ -8,6 +8,8 @@ pub mod scan;
 pub use scan::{scan_directory, ScanResult};
 mod display;
 pub use display::display_scan_results;
+mod error_display;
+pub use error_display::{ValidationError, ErrorType, ErrorDisplay, parse_validation_output, display_validation_errors};
 
 // Import the configuration module
 
@@ -295,10 +297,24 @@ fn validate_python(file_path: &Path, options: &ValidationOptions) -> Result<bool
     let output = cmd.output()?;
     let success = output.status.success();
 
-    if !success && options.verbose {
-        eprintln!("Python validation errors:");
-        if !output.stderr.is_empty() {
-            eprintln!("{}", String::from_utf8_lossy(&output.stderr));
+    // Enhanced error reporting with colorized output
+    if !success {
+        let error_output = if !output.stderr.is_empty() {
+            String::from_utf8_lossy(&output.stderr).to_string()
+        } else {
+            String::from_utf8_lossy(&output.stdout).to_string()
+        };
+        
+        if options.verbose {
+            // Parse and display structured errors
+            let errors = parse_validation_output(file_path, &error_output, "python");
+            if !errors.is_empty() {
+                let _ = display_validation_errors(&errors);
+            } else {
+                // Fallback to simple error display
+                eprintln!("Python validation errors:");
+                eprintln!("{}", error_output);
+            }
         }
     }
 
@@ -312,10 +328,24 @@ fn validate_javascript(file_path: &Path, options: &ValidationOptions) -> Result<
     let output = cmd.output()?;
     let success = output.status.success();
 
-    if !success && options.verbose {
-        eprintln!("JavaScript validation errors:");
-        if !output.stderr.is_empty() {
-            eprintln!("{}", String::from_utf8_lossy(&output.stderr));
+    // Enhanced error reporting with colorized output
+    if !success {
+        let error_output = if !output.stderr.is_empty() {
+            String::from_utf8_lossy(&output.stderr).to_string()
+        } else {
+            String::from_utf8_lossy(&output.stdout).to_string()
+        };
+        
+        if options.verbose {
+            // Parse and display structured errors
+            let errors = parse_validation_output(file_path, &error_output, "javascript");
+            if !errors.is_empty() {
+                let _ = display_validation_errors(&errors);
+            } else {
+                // Fallback to simple error display
+                eprintln!("JavaScript validation errors:");
+                eprintln!("{}", error_output);
+            }
         }
     }
 
