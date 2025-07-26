@@ -1,4 +1,5 @@
 use colored::*;
+use std::path::Path;
 use super::scan::ScanResult;
 use console::{style, Emoji};
 
@@ -9,10 +10,11 @@ static FILE_MARK: Emoji<'_, '_> = Emoji("📄", "-");
 static FOLDER_MARK: Emoji<'_, '_> = Emoji("📁", "+");
 static SEARCH_MARK: Emoji<'_, '_> = Emoji("🔍", ">");
 
-pub fn display_scan_results(result: &ScanResult) {
-    println!("\n{} {} Scan Results", 
+pub fn display_scan_results(result: &ScanResult, root_dir: &Path) {
+    println!("\n{} {} Scan Results for: {}", 
         SEARCH_MARK,
-        "Directory".bright_blue().bold()
+        "Directory".bright_blue().bold(),
+        root_dir.display().to_string().bright_white().underline()
     );
 
     println!("\n{} Summary:", FOLDER_MARK);
@@ -37,7 +39,7 @@ pub fn display_scan_results(result: &ScanResult) {
         println!("\n{} Results by File Type:", FOLDER_MARK);
         for (ext, type_result) in &result.results_by_type {
             let success_rate = (type_result.valid as f32 / type_result.total as f32 * 100.0) as i32;
-            let _status_color = match success_rate {
+            let status_color = match success_rate {
                 90..=100 => "green",
                 70..=89 => "yellow",
                 _ => "red"
@@ -56,20 +58,24 @@ pub fn display_scan_results(result: &ScanResult) {
     if !result.invalid_files.is_empty() {
         println!("\n{} Invalid Files:", CROSS_MARK);
         for file in &result.invalid_files {
-            println!("  {} {}", 
-                CROSS_MARK,
-                file.display().to_string().red()
-            );
+            if let Some(relative) = file.strip_prefix(root_dir).ok() {
+                println!("  {} {}", 
+                    CROSS_MARK,
+                    relative.display().to_string().red()
+                );
+            }
         }
     }
 
     if !result.skipped_files.is_empty() {
         println!("\n{} Skipped Files:", WARN_MARK);
         for file in &result.skipped_files {
-            println!("  {} {}", 
-                WARN_MARK,
-                file.display().to_string().yellow()
-            );
+            if let Some(relative) = file.strip_prefix(root_dir).ok() {
+                println!("  {} {}", 
+                    WARN_MARK,
+                    relative.display().to_string().yellow()
+                );
+            }
         }
     }
 

@@ -1,5 +1,6 @@
 use clap::{Parser, Subcommand};
 use std::process;
+use std::path::PathBuf;
 
 mod banner;
 
@@ -183,7 +184,7 @@ fn handle_scan_command(
                     }
                     _ => {
                         // Default text output
-                        synx::validators::display_scan_results(&result);
+                        synx::validators::display_scan_results(&result, &path_buf);
                     }
                 }
                 
