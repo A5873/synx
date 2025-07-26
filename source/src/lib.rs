@@ -162,7 +162,7 @@ impl Validator {
     /// Validate a file
     pub fn validate_file(&mut self, path: &std::path::Path) -> Result<bool> {
         // Create secure path
-        let path_config = PathSecurityConfig {
+        let _path_config = PathSecurityConfig {
             allowed_dirs: self.config.security.allowed_dirs.clone(),
             max_file_size: self.config.security.max_file_size,
             allowed_extensions: std::collections::HashSet::new(),
@@ -171,7 +171,7 @@ impl Validator {
         };
         
         // Read file contents securely
-        let contents = self.tool_manager.read_file(path)?;
+        let _contents = self.tool_manager.read_file(path)?;
         
         // Determine file type and get appropriate validator
         let file_type = get_file_type(path)?;
@@ -199,7 +199,7 @@ impl Validator {
         check_only: bool,
     ) -> Result<bool> {
         // Create secure path
-        let path_config = PathSecurityConfig {
+        let _path_config = PathSecurityConfig {
             allowed_dirs: self.config.security.allowed_dirs.clone(),
             max_file_size: self.config.security.max_file_size,
             allowed_extensions: std::collections::HashSet::new(),

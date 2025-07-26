@@ -1,6 +1,6 @@
 use anyhow::{Result, anyhow};
 use std::path::Path;
-use std::process::{Command, Stdio};
+use std::process::Command;
 use std::str;
 use std::collections::HashMap;
 
@@ -10,7 +10,6 @@ mod display;
 pub use display::display_scan_results;
 
 // Import the configuration module
-use crate::config;
 
 pub struct ValidationOptions {
     pub strict: bool,

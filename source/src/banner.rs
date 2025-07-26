@@ -1,7 +1,7 @@
 use termcolor::{ColorChoice, ColorSpec, StandardStream, WriteColor};
 use std::io::Write;
 
-const LOGO: &str = r#"
+const _LOGO: &str = r#"
    ███████╗██╗   ██╗███╗   ██╗██╗  ██╗         
    ██╔════╝╚██╗ ██╔╝████╗  ██║╚██╗██╔╝         
    ███████╗ ╚████╔╝ ██╔██╗ ██║ ╚███╔╝          
@@ -14,12 +14,13 @@ const LOGO: &str = r#"
       "Validate with confidence"                 
 "#;
 
+#[allow(dead_code)]
 pub fn print_banner() {
     let mut stdout = StandardStream::stdout(ColorChoice::Auto);
     
     // Print the logo in teal color
     stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Cyan))).unwrap();
-    write!(&mut stdout, "{}", LOGO).unwrap();
+    write!(&mut stdout, "{}", _LOGO).unwrap();
     stdout.reset().unwrap();
     
     // Print version

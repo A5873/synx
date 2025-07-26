@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use std::process::Command;
 use anyhow::{Result, anyhow, Context};
 use serde::{Serialize, Deserialize};
-use log::{debug, warn, error};
 use blake3;
 
 use super::secure::SecureCommand;
@@ -50,7 +49,7 @@ impl Default for ToolSecurityRequirements {
 #[derive(Debug)]
 pub struct VerifiedTool {
     path: PathBuf,
-    name: String,
+    _name: String,
     version: String,
     hash: String,
     security_requirements: ToolSecurityRequirements,
@@ -80,7 +79,7 @@ impl VerifiedTool {
             
         Ok(Self {
             path,
-            name: name.to_string(),
+            _name: name.to_string(),
             version,
             hash,
             security_requirements,

@@ -11,13 +11,11 @@ use std::path::Path;
 use std::process::Command;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
-use std::io::{self, Write};
-use std::fs::{self, File};
+use std::fs::{self};
 use tempfile::TempDir;
 use anyhow::{Result, Context, anyhow};
 
 use crate::detectors::FileType;
-use crate::config::Config;
 use crate::analysis::{
     Analyzer, AnalysisOptions, AnalysisResult, AnalysisDetails, PerformanceDetails,
     AnalysisIssue, IssueSeverity, AnalysisLevel, AnalysisType, HotspotFunction
@@ -196,7 +194,7 @@ impl Analyzer for PerfCpuProfiler {
 
 impl PerfCpuProfiler {
     /// Prepare an executable from the source file for profiling
-    fn prepare_executable(&self, file_type: &FileType, file_path: &Path, temp_dir: &TempDir, verbose: bool) -> Result<String> {
+    fn prepare_executable(&self, file_type: &FileType, file_path: &Path, temp_dir: &TempDir, _verbose: bool) -> Result<String> {
         let executable_path = temp_dir.path().join("executable");
         
         match file_type {
