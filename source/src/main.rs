@@ -62,6 +62,39 @@ enum Commands {
         #[arg(long, short = 'r')]
         report: Option<String>,
     },
+    /// Configuration management commands
+    Config {
+        #[command(subcommand)]
+        action: ConfigAction,
+    },
+    /// Cache management commands
+    Cache {
+        #[command(subcommand)]
+        action: CacheAction,
+    },
+}
+
+#[derive(Subcommand)]
+enum ConfigAction {
+    /// Generate default configuration file
+    Init,
+    /// Show current configuration
+    Show,
+    /// Validate configuration file
+    Validate {
+        /// Path to config file to validate
+        path: Option<String>,
+    },
+}
+
+#[derive(Subcommand)]
+enum CacheAction {
+    /// Show cache statistics
+    Stats,
+    /// Clear validation cache
+    Clear,
+    /// Show cache location
+    Info,
 }
 
 fn main() {
@@ -108,6 +141,12 @@ fn main() {
     match &args.command {
         Some(Commands::Scan { paths, exclude, parallel, format, report }) => {
             handle_scan_command(paths, exclude, *parallel, format, report, &config);
+        }
+        Some(Commands::Config { action }) => {
+            handle_config_command(action, &config);
+        }
+        Some(Commands::Cache { action }) => {
+            handle_cache_command(action);
         }
         None => {
             // Legacy mode: validate individual files
@@ -205,6 +244,172 @@ fn handle_scan_command(
             Err(e) => {
                 eprintln!("❌ Scan failed: {}", e);
                 process::exit(2);
+            }
+        }
+    }
+}
+
+fn handle_config_command(action: &ConfigAction, config: &synx::config::Config) {
+    match action {
+        ConfigAction::Init => {
+            match synx::config::Config::generate_default_config() {
+                Ok(path) => {
+                    println!("✅ Created default configuration at: {}", path.display());
+                    process::exit(0);
+                }
+                Err(e) => {
+                    eprintln!("❌ Failed to create config: {}", e);
+                    process::exit(1);
+                }
+            }
+        }
+        ConfigAction::Show => {
+            println!("📝 Current Configuration:");
+            println!("=======================\n");
+            
+            println!("General Settings:");
+            println!("  Strict mode: {}", config.strict);
+            println!("  Verbose output: {}", config.verbose);
+            println!("  Watch mode: {}", config.watch);
+            println!("  Watch interval: {}s", config.watch_interval);
+            println!("  Timeout: {}s", config.timeout);
+            
+            println!("\nLoaded Configuration Files:");
+            if config.loaded_config_paths.is_empty() {
+                println!("  (No configuration files loaded - using defaults)");
+            } else {
+                for path in &config.loaded_config_paths {
+                    println!("  - {}", path.display());
+                }
+            }
+            
+            if !config.file_mappings.is_empty() {
+                println!("\nFile Mappings:");
+                for (name, mapping) in &config.file_mappings {
+                    println!("  {} -> {}", name, mapping);
+                }
+            }
+            
+            process::exit(0);
+        }
+        ConfigAction::Validate { path } => {
+            let config_path = if let Some(path) = path {
+                std::path::PathBuf::from(path)
+            } else {
+                match synx::config::get_default_config_path() {
+                    Ok(path) => path,
+                    Err(e) => {
+                        eprintln!("❌ Failed to get default config path: {}", e);
+                        process::exit(1);
+                    }
+                }
+            };
+            
+            if !config_path.exists() {
+                eprintln!("❌ Configuration file does not exist: {}", config_path.display());
+                process::exit(1);
+            }
+            
+            match std::fs::read_to_string(&config_path) {
+                Ok(content) => {
+                    match toml::from_str::<toml::Value>(&content) {
+                        Ok(_) => {
+                            println!("✅ Configuration file is valid: {}", config_path.display());
+                            process::exit(0);
+                        }
+                        Err(e) => {
+                            eprintln!("❌ Invalid configuration file: {}", e);
+                            process::exit(1);
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("❌ Failed to read configuration file: {}", e);
+                    process::exit(1);
+                }
+            }
+        }
+    }
+}
+
+fn handle_cache_command(action: &CacheAction) {
+    let cache_dir = dirs::cache_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from(".cache"))
+        .join("synx");
+    let cache_file = cache_dir.join("validation_cache.json");
+    
+    match action {
+        CacheAction::Info => {
+            println!("📁 Cache Information:");
+            println!("===================\n");
+            println!("Cache directory: {}", cache_dir.display());
+            println!("Cache file: {}", cache_file.display());
+            println!("Cache exists: {}", cache_file.exists());
+            
+            if cache_file.exists() {
+                if let Ok(metadata) = std::fs::metadata(&cache_file) {
+                    println!("Cache size: {} bytes", metadata.len());
+                    if let Ok(modified) = metadata.modified() {
+                        println!("Last modified: {:?}", modified);
+                    }
+                }
+            }
+            process::exit(0);
+        }
+        CacheAction::Stats => {
+            if !cache_file.exists() {
+                println!("📊 No cache file found. Run a scan to create cache.");
+                process::exit(0);
+            }
+            
+            match std::fs::read_to_string(&cache_file) {
+                Ok(content) => {
+                    match serde_json::from_str::<std::collections::HashMap<std::path::PathBuf, serde_json::Value>>(&content) {
+                        Ok(cache_data) => {
+                            println!("📊 Cache Statistics:");
+                            println!("==================\n");
+                            println!("Total cached files: {}", cache_data.len());
+                            
+                            let valid_count = cache_data.values()
+                                .filter(|entry| entry.get("is_valid").and_then(|v| v.as_bool()).unwrap_or(false))
+                                .count();
+                            let invalid_count = cache_data.len() - valid_count;
+                            
+                            println!("Valid files: {}", valid_count);
+                            println!("Invalid files: {}", invalid_count);
+                            
+                            if let Ok(metadata) = std::fs::metadata(&cache_file) {
+                                println!("Cache file size: {} bytes", metadata.len());
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("❌ Failed to parse cache file: {}", e);
+                            process::exit(1);
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("❌ Failed to read cache file: {}", e);
+                    process::exit(1);
+                }
+            }
+            process::exit(0);
+        }
+        CacheAction::Clear => {
+            if cache_file.exists() {
+                match std::fs::remove_file(&cache_file) {
+                    Ok(()) => {
+                        println!("✅ Cache cleared successfully");
+                        process::exit(0);
+                    }
+                    Err(e) => {
+                        eprintln!("❌ Failed to clear cache: {}", e);
+                        process::exit(1);
+                    }
+                }
+            } else {
+                println!("📋 No cache file found - nothing to clear");
+                process::exit(0);
             }
         }
     }

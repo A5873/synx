@@ -58,12 +58,22 @@ pub struct ValidationConfig {
 /// Main entry point for running validation on files
 pub fn run(files: &[String], config: &config::Config) -> Result<bool> {
     use std::path::Path;
+    use std::time::Instant;
+    use indicatif::{ProgressBar, ProgressStyle};
     
     if files.is_empty() {
         return Err(anyhow::anyhow!("No files specified for validation"));
     }
     
+    let start_time = Instant::now();
     let mut overall_success = true;
+    let total_files = files.len();
+    
+    // Calculate total file sizes for better progress indication
+    let total_size: u64 = files.iter()
+        .filter_map(|f| std::fs::metadata(f).ok())
+        .map(|m| m.len())
+        .sum();
     
     // Create validation options for built-in validators
     let validation_options = validators::ValidationOptions {
@@ -73,16 +83,47 @@ pub fn run(files: &[String], config: &config::Config) -> Result<bool> {
         config: Some(validators::FileValidationConfig::default()),
     };
     
-    for file_path in files {
+    // Create enhanced progress bar for multiple files
+    let progress = if total_files > 1 {
+        let pb = ProgressBar::new(total_files as u64);
+        pb.set_style(
+            ProgressStyle::default_bar()
+                .template("🔍 [{elapsed_precise}] {bar:40.cyan/blue} {pos:>3}/{len:3} [{eta_precise}] {msg}")
+                .unwrap()
+                .progress_chars("█▇▆▅▄▃▂▁  ")
+        );
+        pb.set_message(format!("Validating {} files ({} total)", 
+            total_files, 
+            format_file_size(total_size)
+        ));
+        Some(pb)
+    } else {
+        None
+    };
+    
+    let mut valid_count = 0;
+    let mut invalid_count = 0;
+    
+    for (_index, file_path) in files.iter().enumerate() {
         let path = Path::new(file_path);
+        
+        // Update progress bar message
+        if let Some(ref pb) = progress {
+            pb.set_message(format!("Validating: {}", 
+                path.file_name().unwrap_or_default().to_string_lossy()));
+        }
         
         if !path.exists() {
             eprintln!("❌ File not found: {}", file_path);
             overall_success = false;
+            invalid_count += 1;
+            if let Some(ref pb) = progress {
+                pb.inc(1);
+            }
             continue;
         }
         
-        if config.verbose {
+        if config.verbose || total_files == 1 {
             println!("🔍 Validating: {}", file_path);
         }
         
@@ -90,18 +131,59 @@ pub fn run(files: &[String], config: &config::Config) -> Result<bool> {
         match validators::validate_file(path, &validation_options) {
             Ok(success) => {
                 if success {
-                    if config.verbose {
+                    valid_count += 1;
+                    if config.verbose || total_files == 1 {
                         println!("✅ {}: Validation passed", file_path);
                     }
                 } else {
+                    invalid_count += 1;
                     println!("❌ {}: Validation failed", file_path);
                     overall_success = false;
                 }
             }
             Err(e) => {
+                invalid_count += 1;
                 eprintln!("❌ {}: Error during validation: {}", file_path, e);
                 overall_success = false;
             }
+        }
+        
+        // Update progress bar
+        if let Some(ref pb) = progress {
+            pb.inc(1);
+            if invalid_count > 0 {
+                pb.set_message(format!("✅ {} passed, ❌ {} failed", valid_count, invalid_count));
+            } else {
+                pb.set_message(format!("✅ {} passed", valid_count));
+            }
+        }
+    }
+    
+    // Finish progress bar with final summary
+    let elapsed = start_time.elapsed();
+    if let Some(pb) = progress {
+        pb.finish_with_message(format!(
+            "Completed: ✅ {} passed, {} {} total ({:.2}s)", 
+            valid_count,
+            if invalid_count > 0 { format!("❌ {} failed,", invalid_count) } else { "".to_string() },
+            total_files,
+            elapsed.as_secs_f64()
+        ));
+        
+        // Print detailed performance summary
+        let files_per_sec = total_files as f64 / elapsed.as_secs_f64();
+        let bytes_per_sec = total_size as f64 / elapsed.as_secs_f64();
+        
+        println!("\n📊 Performance: {:.1} files/sec, {}/sec", 
+            files_per_sec, 
+            format_file_size(bytes_per_sec as u64)
+        );
+        
+        // Print final summary
+        if overall_success {
+            println!("✅ All validations passed successfully!");
+        } else {
+            println!("❌ Some validations failed!");
         }
     }
     
@@ -278,6 +360,28 @@ fn get_file_type(path: &std::path::Path) -> Result<String> {
         .ok_or_else(|| anyhow::anyhow!("File has no extension"))?;
         
     Ok(extension.to_lowercase())
+}
+
+/// Format file size in human-readable format
+fn format_file_size(size: u64) -> String {
+    const UNITS: &[&str] = &["B", "KB", "MB", "GB", "TB"];
+    const THRESHOLD: f64 = 1024.0;
+    
+    if size == 0 {
+        return "0 B".to_string();
+    }
+    
+    let size_f = size as f64;
+    let unit_index = (size_f.log10() / THRESHOLD.log10()).floor() as usize;
+    let unit_index = unit_index.min(UNITS.len() - 1);
+    
+    let size_in_unit = size_f / THRESHOLD.powi(unit_index as i32);
+    
+    if unit_index == 0 {
+        format!("{} {}", size, UNITS[unit_index])
+    } else {
+        format!("{:.1} {}", size_in_unit, UNITS[unit_index])
+    }
 }
 
 #[cfg(test)]
