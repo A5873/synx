@@ -193,7 +193,7 @@ impl SecureCommand {
     }
     
     /// Apply additional constraints to an already spawned process
-    fn apply_process_constraints(&self, child: &Child) -> Result<()> {
+    fn apply_process_constraints(&self, _child: &Child) -> Result<()> {
         // Windows-specific process constraints using job objects
         #[cfg(target_os = "windows")]
         {

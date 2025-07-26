@@ -194,7 +194,7 @@ impl Analyzer for PerfCpuProfiler {
 
 impl PerfCpuProfiler {
     /// Prepare an executable from the source file for profiling
-    fn prepare_executable(&self, file_type: &FileType, file_path: &Path, temp_dir: &TempDir, verbose: bool) -> Result<String> {
+    fn prepare_executable(&self, file_type: &FileType, file_path: &Path, temp_dir: &TempDir, _verbose: bool) -> Result<String> {
         let executable_path = temp_dir.path().join("executable");
         
         match file_type {

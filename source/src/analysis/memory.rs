@@ -47,7 +47,7 @@ impl Analyzer for Valgrind {
         }
     }
     
-    fn analyze(&self, file_path: &Path, options: &AnalysisOptions) -> Result<crate::analysis::traits::AnalysisResult> {
+    fn analyze(&self, file_path: &Path, options: &AnalysisOptions) -> Result<AnalysisResult> {
         let start_time = Instant::now();
         let verbose = options.verbose;
         
@@ -58,7 +58,7 @@ impl Analyzer for Valgrind {
         let file_type = crate::detectors::detect_file_type(file_path)?;
         
         // Prepare the executable
-        let executable_path = self.prepare_executable(&file_type, file_path, &temp_dir, verbose)?;
+        let executable_path = self._prepare_executable(&file_type, file_path, &temp_dir, verbose)?;
         
         // Create output directory for analysis data if requested
         let output_dir = if let Some(dir) = &options.output_dir {
@@ -94,7 +94,7 @@ impl Analyzer for Valgrind {
             ])
             .current_dir(&temp_dir.path());
             
-        let valgrind_output = valgrind_cmd
+        let _valgrind_output = valgrind_cmd
             .output()
             .context("Failed to run Valgrind Memcheck")?;
             
@@ -168,7 +168,7 @@ impl Analyzer for Valgrind {
         let duration = start_time.elapsed();
         
         // Create the analysis result
-        let result = crate::analysis::traits::AnalysisResult {
+        let result = AnalysisResult {
             analyzer_name: self.name().to_string(),
             success: true,
             duration,
@@ -204,7 +204,7 @@ impl Analyzer for Valgrind {
 
 impl Valgrind {
     /// Prepare an executable from the source file for analysis
-    fn prepare_executable(&self, file_type: &FileType, file_path: &Path, temp_dir: &TempDir, verbose: bool) -> Result<String> {
+    fn _prepare_executable(&self, file_type: &FileType, file_path: &Path, temp_dir: &TempDir, _verbose: bool) -> Result<String> {
         let executable_path = temp_dir.path().join("executable");
         
         match file_type {
@@ -716,7 +716,7 @@ impl Analyzer for AddressSanitizer {
 
 impl AddressSanitizer {
     /// Prepare an executable from the source file with ASan enabled
-    fn prepare_executable(&self, file_type: &FileType, file_path: &Path, temp_dir: &TempDir, verbose: bool) -> Result<String> {
+    fn prepare_executable(&self, file_type: &FileType, file_path: &Path, temp_dir: &TempDir, _verbose: bool) -> Result<String> {
         let executable_path = temp_dir.path().join("executable_asan");
         
         match file_type {
@@ -982,7 +982,7 @@ rustflags = ["-Zsanitizer=address"]
     }
     
     /// Parse memory error details from ASan output
-    fn parse_memory_errors(&self, asan_output: &str) -> Vec<AnalysisIssue> {
+    fn _parse_memory_errors(&self, asan_output: &str) -> Vec<AnalysisIssue> {
         let mut issues = Vec::new();
         
         // Parse specific memory errors reported by ASan
@@ -1338,7 +1338,7 @@ static ALLOC: dhat::Alloc = dhat::Alloc;
 
 impl RustMemoryLeakDetector {
     /// Parse dhat-heap results into structured memory details
-    fn parse_dhat_results(&self, dhat_json: &str, drop_check_results: Option<&str>) -> Result<MemoryDetails> {
+    fn parse_dhat_results(&self, dhat_json: &str, _drop_check_results: Option<&str>) -> Result<MemoryDetails> {
         let mut peak_memory = 0;
         let mut total_allocations = 0;
         let mut total_deallocations = 0;
@@ -1994,9 +1994,7 @@ except Exception as e:
 
         // Parse tracemalloc output
         if !tracemalloc.is_empty() {
-            let mut parsing_allocations = false;
             let mut parsing_by_file = false;
-            let mut parsing_by_category = false;
             
             for line in tracemalloc.lines() {
                 // Count allocations
@@ -2022,19 +2020,11 @@ except Exception as e:
                     }
                 }
                 
-                // Detect sections
-                if line.contains("Top memory allocations:") {
-                    parsing_allocations = true;
-                    parsing_by_file = false;
-                    parsing_by_category = false;
-                } else if line.contains("Memory allocations by file:") {
-                    parsing_allocations = false;
+                // Detect sections - only track parsing_by_file since it's the only one used
+                if line.contains("Memory allocations by file:") {
                     parsing_by_file = true;
-                    parsing_by_category = false;
-                } else if line.contains("Memory allocations by category:") {
-                    parsing_allocations = false;
+                } else if line.contains("Top memory allocations:") || line.contains("Memory allocations by category:") {
                     parsing_by_file = false;
-                    parsing_by_category = true;
                 }
             }
         }

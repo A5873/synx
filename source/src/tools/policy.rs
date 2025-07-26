@@ -128,7 +128,7 @@ pub struct FileSecurityChecks {
 pub struct PolicyEnforcer {
     policy: SecurityPolicy,
     current_user: String,
-    session_id: String,
+    _session_id: String,
 }
 
 impl PolicyEnforcer {
@@ -142,7 +142,7 @@ impl PolicyEnforcer {
         Ok(Self {
             policy,
             current_user,
-            session_id,
+    _session_id: session_id,
         })
     }
 
@@ -154,7 +154,7 @@ impl PolicyEnforcer {
         path: &Path,
     ) -> Result<()> {
         // Create correlation ID for this authorization check
-        let correlation_id = format!("auth_{}_{}", tool, uuid::Uuid::new_v4());
+        let _correlation_id = format!("auth_{}_{}", tool, uuid::Uuid::new_v4());
         
         // Check user restrictions
         if let Some(restrictions) = self.policy.user_restrictions.get(&self.current_user) {
@@ -521,7 +521,7 @@ mod tests {
             },
             tool_policies: {
                 let mut map = HashMap::new();
-                let mut tool_policy = ToolPolicy {
+                let tool_policy = ToolPolicy {
                     required_permissions: {
                         let mut set = HashSet::new();
                         set.insert(Permission::Read);

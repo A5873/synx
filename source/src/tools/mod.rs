@@ -147,7 +147,7 @@ impl ToolManager {
         
         // Create secure path
         let path_config = self.policy_enforcer.get_path_security_config(path);
-        let secure_path = SecurePath::new(path, path_config)?;
+        let _secure_path = SecurePath::new(path, path_config)?;
         
         // Create temporary file
         let (temp_path, mut temp_file) = paths::create_secure_tempfile()?;
@@ -167,6 +167,7 @@ impl ToolManager {
 mod tests {
     use super::*;
     use std::collections::HashMap;
+    use std::path::PathBuf;
     use tempfile::TempDir;
 
     fn create_test_policy() -> SecurityPolicy {

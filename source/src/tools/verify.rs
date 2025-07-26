@@ -49,7 +49,7 @@ impl Default for ToolSecurityRequirements {
 #[derive(Debug)]
 pub struct VerifiedTool {
     path: PathBuf,
-    name: String,
+    _name: String,
     version: String,
     hash: String,
     security_requirements: ToolSecurityRequirements,
@@ -79,7 +79,7 @@ impl VerifiedTool {
             
         Ok(Self {
             path,
-            name: name.to_string(),
+            _name: name.to_string(),
             version,
             hash,
             security_requirements,

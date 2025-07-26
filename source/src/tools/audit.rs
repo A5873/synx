@@ -184,13 +184,13 @@ impl AuditEvent {
     }
     
     /// Set the source component
-    pub fn with_source(mut self, source: String) -> Self {
+    pub fn _with_source(mut self, source: String) -> Self {
         self.source = source;
         self
     }
-    
-    /// Set the session ID
-    pub fn with_session_id(mut self, session_id: String) -> Self {
+
+    /// Add session ID to the event
+    pub fn _with_session_id(mut self, session_id: String) -> Self {
         self.session_id = Some(session_id);
         self
     }
@@ -219,7 +219,7 @@ impl AuditEvent {
     }
 
     /// Verify the event signature
-    fn verify(&self, key: &[u8]) -> bool {
+    fn _verify(&self, key: &[u8]) -> bool {
         if let Some(sig) = &self.signature {
             let event_data = serde_json::to_vec(&(
                 self.timestamp,
@@ -304,7 +304,7 @@ impl AuditLogger {
     }
 
     /// Configure the audit logger
-    pub fn configure(&mut self, config: AuditConfig) -> Result<()> {
+    pub fn _configure(&mut self, config: AuditConfig) -> Result<()> {
         // Reconfigure alert system if alert settings changed
         if self.config.enable_alerts != config.enable_alerts ||
            self.config.alert_destination != config.alert_destination ||
@@ -424,7 +424,7 @@ impl AuditLogger {
     }
 
     /// Verify the integrity of a log file
-    pub fn verify_log_file(&self, path: &PathBuf) -> Result<bool> {
+    pub fn _verify_log_file(&self, path: &PathBuf) -> Result<bool> {
         use std::io::{BufRead, BufReader};
         use std::fs::File;
         
@@ -440,7 +440,7 @@ impl AuditLogger {
                 .context("Failed to parse audit event")?;
                 
             if self.config.sign_entries {
-                if !event.verify(&self.signing_key) {
+                if !event._verify(&self.signing_key) {
                     return Ok(false);
                 }
             }
@@ -561,7 +561,7 @@ pub fn log_tool_execution(
 }
 
 /// Log a configuration change event
-pub fn log_config_change(
+pub fn _log_config_change(
     component: &str,
     old_value: &str,
     new_value: &str,
@@ -617,7 +617,7 @@ pub fn log_file_access(
 }
 
 /// Log a validation event
-pub fn log_validation_event(
+pub fn _log_validation_event(
     validator: &str,
     file_path: &PathBuf,
     status: bool,
@@ -766,7 +766,7 @@ mod tests {
         
         event.sign(&key);
         assert!(event.signature.is_some());
-        assert!(event.verify(&key));
+        assert!(event._verify(&key));
     }
 
     #[test]
@@ -778,7 +778,7 @@ mod tests {
         config.log_path = log_path.clone();
         
         let mut logger = AuditLogger::new().unwrap();
-        logger.configure(config);
+        let _ = logger._configure(config);
         
         let mut event = AuditEvent::new(
             AuditEventType::SystemEvent,
@@ -802,7 +802,7 @@ mod tests {
         config.max_log_size = 100; // Small size to trigger rotation
         
         let mut logger = AuditLogger::new().unwrap();
-        logger.configure(config).unwrap();
+        logger._configure(config).unwrap();
         
         // Write multiple events to trigger rotation
         for i in 0..10 {
@@ -838,7 +838,7 @@ mod tests {
         config.min_severity = EventSeverity::Error;
         
         let mut logger = AuditLogger::new().unwrap();
-        logger.configure(config).unwrap();
+        logger._configure(config).unwrap();
         
         // Critical event should be logged (above threshold)
         assert!(logger.log_event(&mut event).is_ok());
@@ -869,7 +869,7 @@ mod tests {
     #[test]
     fn test_new_event_types() {
         // Test ValidationEvent
-        let mut event = AuditEvent::new(
+        let event = AuditEvent::new(
             AuditEventType::ValidationEvent,
             "Validation test".to_string(),
             serde_json::json!({
@@ -881,7 +881,7 @@ mod tests {
         assert_eq!(event.event_type, AuditEventType::ValidationEvent);
         
         // Test ResourceEvent
-        let mut event = AuditEvent::new(
+        let event = AuditEvent::new(
             AuditEventType::ResourceEvent,
             "Resource test".to_string(),
             serde_json::json!({
