@@ -37,12 +37,14 @@ Synx is a **blazingly fast**, **security-focused** universal syntax validator bu
 
 ### ⚡ Key Highlights
 
-- 🔒 **Enterprise Security**: Sandboxed execution with audit logging
+- 🔌 **Complete Plugin System**: Registry, loader, lifecycle management with 3 built-in plugins
+- 🔒 **Enterprise Security**: Comprehensive audit logging, resource limits, and policy enforcement  
 - 🚀 **High Performance**: Parallel processing with Rayon, handles 1000+ files/minute
 - 🔄 **Always-On Daemon**: Real-time file watching and validation with system service integration
-- 🎛️ **Advanced CLI**: Rich terminal interface with progress bars and colored output
+- 🎛️ **Advanced CLI**: 8+ command categories with rich terminal interface and progress bars
+- 🧠 **Intelligence Engine**: Advanced code analysis, metrics, patterns, and learning capabilities
 - 📊 **Multiple Formats**: Text, JSON, and detailed report generation
-- 🔧 **Extensible**: Plugin architecture for custom validators
+- 🔧 **Extensible**: Full plugin architecture with CLI integration for custom validators
 - 📈 **CI/CD Ready**: Perfect for automated pipelines and code quality gates
 
 ## 🚀 Quick Start
@@ -163,6 +165,40 @@ See [Interactive TUI Guide](source/docs/TUI_GUIDE.md) for complete documentation
     synx scan ./src ./tests --format json --report validation.json
     synx scan ./src --strict --parallel 4
 ```
+
+### 🔌 **Plugin System (NEW!)** 
+
+Synx features a comprehensive plugin architecture that allows for easy extension and customization of validation, formatting, analysis, and reporting capabilities.
+
+```bash
+# List all available plugins
+synx plugin list
+
+# Show plugin system status
+synx plugin status
+
+# Test a file with specific plugins
+synx plugin test file.py --operation validate
+
+# Enable or disable plugins
+synx plugin enable python_validator
+synx plugin disable basic_analyzer
+
+# View plugin statistics
+synx plugin stats python_validator
+```
+
+**Built-in Plugins:**
+- 🐍 **Python Validator**: Validates Python files using flake8 and mypy
+- 📝 **JSON Formatter**: Formats JSON files with consistent indentation
+- 📈 **Basic Analyzer**: Provides code metrics like line count and file size
+
+**Plugin Features:**
+- 🏠 **Registry System**: Centralized plugin management and discovery
+- 🔄 **Lifecycle Management**: Automatic initialization and cleanup
+- 🔒 **Security Integration**: Plugins run within security policy constraints
+- ⚙️ **CLI Integration**: Full command-line interface for plugin management
+- 📈 **Performance Monitoring**: Built-in statistics and health tracking
 
 ### 🔄 **Daemon Mode (NEW!)** 
 
