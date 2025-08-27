@@ -19,6 +19,65 @@ pub struct SecurityPolicy {
     pub user_restrictions: HashMap<String, UserRestrictions>,
 }
 
+impl Default for SecurityPolicy {
+    fn default() -> Self {
+        Self {
+            global: GlobalSecuritySettings::default(),
+            tool_policies: HashMap::new(),
+            file_policies: FileOperationPolicy::default(),
+            user_restrictions: HashMap::new(),
+        }
+    }
+}
+
+impl Default for GlobalSecuritySettings {
+    fn default() -> Self {
+        Self {
+            strict_mode: false,
+            allow_network: false,
+            max_processes: 5,
+            resource_limits: ResourceLimits::default(),
+            allowed_working_dirs: vec![std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))],
+        }
+    }
+}
+
+impl Default for ResourceLimits {
+    fn default() -> Self {
+        Self {
+            max_memory: 512,
+            max_cpu: 50,
+            max_io_rate: 10,
+            max_execution_time: 30,
+        }
+    }
+}
+
+impl Default for FileOperationPolicy {
+    fn default() -> Self {
+        let mut default_permissions = HashSet::new();
+        default_permissions.insert(Permission::Read);
+        
+        Self {
+            default_permissions,
+            path_permissions: HashMap::new(),
+            restricted_paths: vec![],
+            required_checks: FileSecurityChecks::default(),
+        }
+    }
+}
+
+impl Default for FileSecurityChecks {
+    fn default() -> Self {
+        Self {
+            verify_ownership: false,
+            check_permissions: false,
+            validate_content: false,
+            enforce_size_limits: true,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GlobalSecuritySettings {
     /// Whether to enforce strict mode

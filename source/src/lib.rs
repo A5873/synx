@@ -32,6 +32,7 @@ pub mod detectors;
 pub mod daemon;
 pub mod performance;
 pub mod tui;
+pub mod plugin;
 
 // Private modules
 mod banner;

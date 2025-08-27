@@ -100,6 +100,11 @@ enum Commands {
         #[arg(long)]
         auto_validate: bool,
     },
+    /// Plugin management commands
+    Plugin {
+        #[command(subcommand)]
+        action: PluginAction,
+    },
 }
 
 #[derive(Subcommand)]
@@ -216,6 +221,69 @@ enum PerformanceAction {
     },
 }
 
+#[derive(Subcommand)]
+enum PluginAction {
+    /// List all available plugins
+    List {
+        /// Output format (text, json)
+        #[arg(long, short = 'f', default_value = "text")]
+        format: String,
+        /// Show only enabled plugins
+        #[arg(long)]
+        enabled_only: bool,
+        /// Filter by category
+        #[arg(long, short = 'c')]
+        category: Option<String>,
+    },
+    /// Show plugin system status
+    Status,
+    /// Show plugin statistics and performance metrics
+    Stats {
+        /// Plugin ID to show stats for (optional)
+        plugin_id: Option<String>,
+    },
+    /// Enable a plugin
+    Enable {
+        /// Plugin ID to enable
+        plugin_id: String,
+    },
+    /// Disable a plugin
+    Disable {
+        /// Plugin ID to disable
+        plugin_id: String,
+    },
+    /// Show plugin configuration schema
+    Schema {
+        /// Plugin ID to show schema for
+        plugin_id: String,
+    },
+    /// Configure a plugin
+    Configure {
+        /// Plugin ID to configure
+        plugin_id: String,
+        /// Configuration in JSON format
+        #[arg(long, short = 'c')]
+        config: String,
+    },
+    /// Test a file with specific plugins
+    Test {
+        /// File to test
+        file: String,
+        /// Plugin ID to test with (optional, uses all applicable if not specified)
+        #[arg(long, short = 'p')]
+        plugin_id: Option<String>,
+        /// Operation type (validate, format, analyze)
+        #[arg(long, short = 'o', default_value = "validate")]
+        operation: String,
+        /// For format operations, only check (don't modify)
+        #[arg(long)]
+        check_only: bool,
+        /// Output format (text, json)
+        #[arg(long, short = 'f', default_value = "text")]
+        format: String,
+    },
+}
+
 fn main() {
     // Initialize logging
     env_logger::init();
@@ -275,6 +343,10 @@ fn main() {
         }
         Some(Commands::Monitor { paths, auto_validate }) => {
             handle_monitor_command(paths, *auto_validate, &config);
+        }
+        Some(Commands::Plugin { action }) => {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(handle_plugin_command(action, &config));
         }
         None => {
             // Legacy mode: validate individual files
@@ -1088,6 +1160,412 @@ fn handle_monitor_command(paths: &[String], _auto_validate: bool, _config: &synx
         Err(e) => {
             eprintln!("❌ Interactive TUI failed: {}", e);
             process::exit(1);
+        }
+    }
+}
+
+async fn handle_plugin_command(action: &PluginAction, config: &synx::config::Config) {
+    use synx::plugin::integration::{create_plugin_validator, ValidationSummary};
+    use synx::{ValidationConfig, SecurityConfig};
+    use slog::{Drain, Logger};
+    use std::path::PathBuf;
+
+    // Create a logger for plugin operations
+    let decorator = slog_term::TermDecorator::new().build();
+    let drain = slog_term::FullFormat::new(decorator).build().fuse();
+    let drain = slog_async::Async::new(drain).build().fuse();
+    let logger = Logger::root(drain, slog::o!());
+
+    // Convert synx::config::Config to ValidationConfig
+    let validation_config = ValidationConfig {
+        strict: config.strict,
+        verbose: config.verbose,
+        config_path: None,
+        watch: config.watch,
+        security: SecurityConfig {
+            audit_log: None,
+            max_file_size: 50 * 1024 * 1024, // 50MB
+            allowed_dirs: vec![std::env::current_dir().unwrap()],
+            strict_security: false,
+        },
+    };
+
+    match action {
+        PluginAction::List { format, enabled_only, category } => {
+            println!("📋 Available Plugins");
+            println!("===================\n");
+
+            let validator = match create_plugin_validator(validation_config, logger).await {
+                Ok(v) => v,
+                Err(e) => {
+                    eprintln!("❌ Failed to create plugin validator: {}", e);
+                    process::exit(1);
+                }
+            };
+
+            let plugins = validator.list_plugins();
+            let mut filtered_plugins = plugins.clone();
+
+            // Filter by enabled status
+            if *enabled_only {
+                filtered_plugins.retain(|p| p.config.enabled && matches!(p.status, synx::plugin::PluginStatus::Active));
+            }
+
+            // Filter by category
+            if let Some(cat_filter) = category {
+                let target_category = match cat_filter.to_lowercase().as_str() {
+                    "validator" => synx::plugin::PluginCategory::Validator,
+                    "formatter" => synx::plugin::PluginCategory::Formatter,
+                    "analyzer" => synx::plugin::PluginCategory::Analyzer,
+                    "reporter" => synx::plugin::PluginCategory::Reporter,
+                    "security" => synx::plugin::PluginCategory::Security,
+                    "performance" => synx::plugin::PluginCategory::Performance,
+                    "linter" => synx::plugin::PluginCategory::Linter,
+                    "documentation" => synx::plugin::PluginCategory::Documentation,
+                    "integration" => synx::plugin::PluginCategory::Integration,
+                    other => synx::plugin::PluginCategory::Custom(other.to_string()),
+                };
+                filtered_plugins.retain(|p| p.metadata.categories.contains(&target_category));
+            }
+
+            match format.as_str() {
+                "json" => {
+                    let json_output = serde_json::json!({
+                        "plugins": filtered_plugins.iter().map(|p| {
+                            serde_json::json!({
+                                "id": p.metadata.id,
+                                "name": p.metadata.name,
+                                "version": p.metadata.version,
+                                "description": p.metadata.description,
+                                "authors": p.metadata.authors,
+                                "categories": p.metadata.categories,
+                                "supported_extensions": p.metadata.supported_extensions,
+                                "enabled": p.config.enabled,
+                                "status": p.status,
+                                "priority": p.config.priority
+                            })
+                        }).collect::<Vec<_>>()
+                    });
+                    println!("{}", serde_json::to_string_pretty(&json_output).unwrap());
+                }
+                _ => {
+                    // Default text format
+                    for plugin in &filtered_plugins {
+                        let status_icon = match plugin.status {
+                            synx::plugin::PluginStatus::Active => "✅",
+                            synx::plugin::PluginStatus::Disabled => "⏸️",
+                            synx::plugin::PluginStatus::Failed(_) => "❌",
+                            synx::plugin::PluginStatus::Unloaded => "⭕",
+                        };
+                        
+                        println!("{} {} ({})", status_icon, plugin.metadata.name, plugin.metadata.id);
+                        println!("   Version: {}", plugin.metadata.version);
+                        println!("   Description: {}", plugin.metadata.description);
+                        println!("   Categories: {}", plugin.metadata.categories.iter()
+                            .map(|c| format!("{:?}", c))
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                        );
+                        println!("   Supported Extensions: {}", plugin.metadata.supported_extensions.join(", "));
+                        println!("   Priority: {}", plugin.config.priority);
+                        println!();
+                    }
+                    
+                    println!("Total plugins: {} (showing {})", plugins.len(), filtered_plugins.len());
+                }
+            }
+
+            validator.shutdown().await.unwrap();
+            process::exit(0);
+        }
+
+        PluginAction::Status => {
+            println!("🔌 Plugin System Status");
+            println!("======================\n");
+
+            let validator = match create_plugin_validator(validation_config, logger).await {
+                Ok(v) => v,
+                Err(e) => {
+                    eprintln!("❌ Failed to create plugin validator: {}", e);
+                    process::exit(1);
+                }
+            };
+
+            let status = validator.get_system_status().await;
+            
+            println!("System Status: Active");
+            println!("Total Plugins: {}", status.total_plugins);
+            println!("Active Plugins: {}", status.active_plugins);
+            println!("Healthy Plugins: {}", status.healthy_plugins);
+            println!("Total Executions: {}", status.total_executions);
+            println!("Average Success Rate: {:.1}%", status.avg_success_rate);
+
+            validator.shutdown().await.unwrap();
+            process::exit(0);
+        }
+
+        PluginAction::Stats { plugin_id } => {
+            let validator = match create_plugin_validator(validation_config, logger).await {
+                Ok(v) => v,
+                Err(e) => {
+                    eprintln!("❌ Failed to create plugin validator: {}", e);
+                    process::exit(1);
+                }
+            };
+
+            let all_stats = validator.get_plugin_stats().await;
+
+            if let Some(id) = plugin_id {
+                // Show stats for specific plugin
+                if let Some(stats) = all_stats.get(id) {
+                    println!("📊 Plugin Statistics: {}", id);
+                    println!("=============================\n");
+                    println!("Total Executions: {}", stats.executions);
+                    println!("Successful Executions: {}", stats.successful_executions);
+                    println!("Failed Executions: {}", stats.failed_executions);
+                    println!("Success Rate: {:.1}%", stats.success_rate());
+                    println!("Average Execution Time: {:.2}ms", stats.avg_execution_time_ms);
+                    println!("Maximum Execution Time: {}ms", stats.max_execution_time_ms);
+                    if let Some(last_exec) = &stats.last_execution {
+                        println!("Last Execution: {:?} ago", last_exec.elapsed());
+                    }
+                } else {
+                    eprintln!("❌ No statistics found for plugin: {}", id);
+                    process::exit(1);
+                }
+            } else {
+                // Show stats for all plugins
+                println!("📊 Plugin Statistics (All Plugins)");
+                println!("==================================\n");
+                
+                if all_stats.is_empty() {
+                    println!("No plugin statistics available (no plugins have been executed yet).");
+                } else {
+                    for (plugin_id, stats) in &all_stats {
+                        println!("{}:", plugin_id);
+                        println!("  Executions: {}", stats.executions);
+                        println!("  Success Rate: {:.1}%", stats.success_rate());
+                        println!("  Avg Time: {:.2}ms", stats.avg_execution_time_ms);
+                        println!();
+                    }
+                }
+            }
+
+            validator.shutdown().await.unwrap();
+            process::exit(0);
+        }
+
+        PluginAction::Enable { plugin_id } => {
+            println!("🔌 Enabling plugin: {}", plugin_id);
+
+            let validator = match create_plugin_validator(validation_config, logger).await {
+                Ok(v) => v,
+                Err(e) => {
+                    eprintln!("❌ Failed to create plugin validator: {}", e);
+                    process::exit(1);
+                }
+            };
+
+            match validator.enable_plugin(plugin_id).await {
+                Ok(()) => {
+                    println!("✅ Plugin '{}' enabled successfully", plugin_id);
+                }
+                Err(e) => {
+                    eprintln!("❌ Failed to enable plugin '{}': {}", plugin_id, e);
+                    validator.shutdown().await.unwrap();
+                    process::exit(1);
+                }
+            }
+
+            validator.shutdown().await.unwrap();
+            process::exit(0);
+        }
+
+        PluginAction::Disable { plugin_id } => {
+            println!("⏸️ Disabling plugin: {}", plugin_id);
+
+            let validator = match create_plugin_validator(validation_config, logger).await {
+                Ok(v) => v,
+                Err(e) => {
+                    eprintln!("❌ Failed to create plugin validator: {}", e);
+                    process::exit(1);
+                }
+            };
+
+            match validator.disable_plugin(plugin_id).await {
+                Ok(()) => {
+                    println!("✅ Plugin '{}' disabled successfully", plugin_id);
+                }
+                Err(e) => {
+                    eprintln!("❌ Failed to disable plugin '{}': {}", plugin_id, e);
+                    validator.shutdown().await.unwrap();
+                    process::exit(1);
+                }
+            }
+
+            validator.shutdown().await.unwrap();
+            process::exit(0);
+        }
+
+        PluginAction::Schema { plugin_id } => {
+            println!("📋 Plugin Configuration Schema: {}", plugin_id);
+            println!("=====================================\n");
+            
+            let validator = match create_plugin_validator(validation_config, logger).await {
+                Ok(v) => v,
+                Err(e) => {
+                    eprintln!("❌ Failed to create plugin validator: {}", e);
+                    process::exit(1);
+                }
+            };
+
+            // Note: This is a simplified implementation.
+            // In a full implementation, we'd need to access the plugin and call its config_schema method.
+            println!("Schema retrieval not fully implemented in this demo.");
+            println!("This would show the JSON schema for configuring the '{}' plugin.", plugin_id);
+
+            validator.shutdown().await.unwrap();
+            process::exit(0);
+        }
+
+        PluginAction::Configure { plugin_id, config: config_json } => {
+            println!("⚙️ Configuring plugin: {}", plugin_id);
+
+            let validator = match create_plugin_validator(validation_config, logger).await {
+                Ok(v) => v,
+                Err(e) => {
+                    eprintln!("❌ Failed to create plugin validator: {}", e);
+                    process::exit(1);
+                }
+            };
+
+            // Parse the JSON configuration
+            let config_value: serde_json::Value = match serde_json::from_str(config_json) {
+                Ok(v) => v,
+                Err(e) => {
+                    eprintln!("❌ Invalid JSON configuration: {}", e);
+                    process::exit(1);
+                }
+            };
+
+            println!("Configuration parsing successful. In a full implementation, this would:");
+            println!("1. Validate the configuration against the plugin's schema");
+            println!("2. Update the plugin's configuration");
+            println!("3. Restart the plugin with new configuration");
+            println!("\nReceived configuration: {}", serde_json::to_string_pretty(&config_value).unwrap());
+
+            validator.shutdown().await.unwrap();
+            process::exit(0);
+        }
+
+        PluginAction::Test { file, plugin_id, operation, check_only, format } => {
+            let file_path = PathBuf::from(file);
+            if !file_path.exists() {
+                eprintln!("❌ File does not exist: {}", file);
+                process::exit(1);
+            }
+
+            println!("🧪 Testing file with plugins: {}", file);
+            println!("Operation: {}", operation);
+            if let Some(id) = plugin_id {
+                println!("Using plugin: {}", id);
+            } else {
+                println!("Using all applicable plugins");
+            }
+            println!();
+
+            let validator = match create_plugin_validator(validation_config, logger).await {
+                Ok(v) => v,
+                Err(e) => {
+                    eprintln!("❌ Failed to create plugin validator: {}", e);
+                    process::exit(1);
+                }
+            };
+
+            let result = match operation.as_str() {
+                "validate" => validator.validate_file(&file_path).await,
+                "format" => validator.format_file(&file_path, *check_only).await,
+                "analyze" => validator.analyze_file(&file_path).await,
+                _ => {
+                    eprintln!("❌ Unknown operation: {}", operation);
+                    process::exit(1);
+                }
+            };
+
+            match result {
+                Ok(summary) => {
+                    match format.as_str() {
+                        "json" => {
+                            let json_output = serde_json::json!({
+                                "file_path": summary.file_path,
+                                "success": summary.success,
+                                "plugin_results": summary.plugin_results,
+                                "warnings": summary.warnings,
+                                "errors": summary.errors,
+                                "metrics": summary.metrics,
+                                "summary": summary.summary_message()
+                            });
+                            println!("{}", serde_json::to_string_pretty(&json_output).unwrap());
+                        }
+                        _ => {
+                            // Default text format
+                            println!("📄 File: {}", summary.file_path.display());
+                            println!("✅ Success: {}", summary.success);
+                            println!("📊 Summary: {}", summary.summary_message());
+                            
+                            if !summary.plugin_results.is_empty() {
+                                println!("\n🔌 Plugin Results:");
+                                for (plugin_id, result) in &summary.plugin_results {
+                                    let status = if result.success { "✅" } else { "❌" };
+                                    println!("  {} {}: {}", status, plugin_id, result.message);
+                                    
+                                    if !result.warnings.is_empty() {
+                                        for warning in &result.warnings {
+                                            println!("    ⚠️ {}", warning);
+                                        }
+                                    }
+                                    
+                                    if !result.errors.is_empty() {
+                                        for error in &result.errors {
+                                            println!("    ❌ {}", error);
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            if !summary.metrics.is_empty() {
+                                println!("\n📊 Metrics:");
+                                for (key, value) in &summary.metrics {
+                                    println!("  {}: {}", key, value);
+                                }
+                            }
+                            
+                            if !summary.warnings.is_empty() {
+                                println!("\n⚠️ Warnings:");
+                                for warning in &summary.warnings {
+                                    println!("  - {}", warning);
+                                }
+                            }
+                            
+                            if !summary.errors.is_empty() {
+                                println!("\n❌ Errors:");
+                                for error in &summary.errors {
+                                    println!("  - {}", error);
+                                }
+                            }
+                        }
+                    }
+                    
+                    let exit_code = if summary.success { 0 } else { 1 };
+                    validator.shutdown().await.unwrap();
+                    process::exit(exit_code);
+                }
+                Err(e) => {
+                    eprintln!("❌ Plugin test failed: {}", e);
+                    validator.shutdown().await.unwrap();
+                    process::exit(1);
+                }
+            }
         }
     }
 }
