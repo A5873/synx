@@ -42,4 +42,4 @@ packaging/deb/pool/
 packaging/rpm/RPMS/
 packaging/**/build/
 
-WARP.md
+/WARP.md
