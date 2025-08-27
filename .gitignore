@@ -43,3 +43,4 @@ packaging/rpm/RPMS/
 packaging/**/build/
 
 /WARP.md
+BUSINESS.md
