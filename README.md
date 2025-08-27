@@ -10,7 +10,7 @@
 [![Platform Support](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-brightgreen.svg?style=for-the-badge&logo=windowsterminal)](https://github.com/A5873/synx/releases)
 [![Rust](https://img.shields.io/badge/rust-1.70+-orange.svg?style=for-the-badge&logo=rust)](https://www.rust-lang.org)
 
-**🚀 A high-performance, enterprise-grade CLI tool for validating syntax across 15+ programming languages with advanced security features**
+**🚀 A high-performance, enterprise-grade CLI tool for validating syntax across 15+ programming languages with advanced security features and always-on daemon mode**
 
 </div>
 
@@ -39,6 +39,7 @@ Synx is a **blazingly fast**, **security-focused** universal syntax validator bu
 
 - 🔒 **Enterprise Security**: Sandboxed execution with audit logging
 - 🚀 **High Performance**: Parallel processing with Rayon, handles 1000+ files/minute
+- 🔄 **Always-On Daemon**: Real-time file watching and validation with system service integration
 - 🎛️ **Advanced CLI**: Rich terminal interface with progress bars and colored output
 - 📊 **Multiple Formats**: Text, JSON, and detailed report generation
 - 🔧 **Extensible**: Plugin architecture for custom validators
@@ -131,6 +132,40 @@ synx scan ./src --watch --verbose
     synx scan ./src ./tests --format json --report validation.json
     synx scan ./src --strict --parallel 4
 ```
+
+### 🔄 **Daemon Mode (NEW!)** 
+
+Synx Daemon is an always-on, low-footprint background service that watches specified directories for file changes, auto-detects the file type, and immediately runs the correct validator or linter without user prompts.
+
+```bash
+# Start daemon in foreground for testing
+synx daemon start --watch-paths ./src,./tests --foreground
+
+# Generate daemon configuration
+synx daemon init-config --path synx-daemon.toml
+
+# Install as system service (Linux/macOS)
+sudo synx daemon install --service-name synx-daemon
+
+# Start the service
+sudo systemctl start synx-daemon  # Linux
+sudo launchctl load /Library/LaunchDaemons/com.synx.synx-daemon.plist  # macOS
+
+# Check daemon status
+synx daemon status
+
+# Stop and uninstall
+sudo synx daemon uninstall --service-name synx-daemon
+```
+
+**Key Daemon Features:**
+- ⚡ **Real-time Validation**: Instant feedback on file changes
+- 🔧 **Auto-detection**: Automatically detects file types and applies correct validators
+- 📁 **Directory Watching**: Monitors multiple directories recursively
+- ⚙️ **Configurable**: Extensive configuration options via TOML files
+- 🛡️ **Secure**: Runs with minimal privileges and resource limits
+- 📊 **Statistics**: Built-in monitoring and health checks
+- 🔄 **Debouncing**: Prevents excessive validations during rapid file changes
 
 ## Repository Structure
 

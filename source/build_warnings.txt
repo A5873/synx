@@ -1,0 +1,254 @@
+   Compiling synx v0.3.0 (/Users/alex/devving/code-lobo/PROJECTS/synx/source)
+warning: unused import: `anyhow`
+ --> src/daemon/mod.rs:1:22
+--
+--
+
+warning: unused import: `Config`
+ --> src/daemon/mod.rs:6:14
+--
+--
+
+warning: unused import: `error`
+ --> src/daemon/service.rs:5:23
+--
+--
+
+warning: unused import: `anyhow`
+ --> src/performance/mod.rs:9:22
+--
+--
+
+warning: unused import: `std::collections::HashMap`
+  --> src/performance/mod.rs:10:5
+--
+--
+
+warning: unused imports: `PathBuf` and `Path`
+  --> src/performance/mod.rs:11:17
+--
+--
+
+warning: unused imports: `Arc`, `Mutex`, and `RwLock`
+  --> src/performance/mod.rs:12:17
+--
+--
+
+warning: unused imports: `Duration`, `Instant`, `SystemTime`, and `UNIX_EPOCH`
+  --> src/performance/mod.rs:13:17
+--
+--
+
+warning: unused import: `blake3::Hasher`
+  --> src/performance/mod.rs:14:5
+--
+--
+
+warning: unused import: `std::fs`
+  --> src/performance/mod.rs:15:5
+--
+--
+
+warning: unused import: `std::io::Read`
+  --> src/performance/mod.rs:16:5
+--
+--
+
+warning: unused import: `Instant`
+  --> src/performance/cache.rs:13:27
+--
+--
+
+warning: unused import: `anyhow`
+ --> src/performance/parallel.rs:5:22
+--
+--
+
+warning: unused import: `Mutex`
+ --> src/performance/parallel.rs:8:22
+--
+--
+
+warning: unused variable: `debounce_duration`
+   --> src/daemon/mod.rs:136:13
+--
+--
+
+warning: unused import: `Write`
+  --> src/performance/cache.rs:16:21
+--
+--
+
+warning: field `config` is never read
+  --> src/performance/mod.rs:65:5
+--
+--
+
+warning: fields `monitor` and `batch_size` are never read
+  --> src/performance/parallel.rs:24:5
+--
+--
+
+warning: `synx` (lib) generated 18 warnings (run `cargo fix --lib -p synx` to apply 14 suggestions)
+warning: unused import: `PathBuf`
+ --> src/intelligence/sentinel.rs:2:23
+--
+--
+
+warning: unused import: `Instant`
+ --> src/intelligence/sentinel.rs:3:27
+--
+--
+
+warning: unused imports: `ErrorRecord`, `QualityScore`, and `SmartSuggestion`
+ --> src/intelligence/sentinel.rs:8:13
+--
+--
+
+warning: unused import: `sentinel::SentinelAI`
+  --> src/intelligence/mod.rs:20:9
+--
+--
+
+warning: unused import: `cache::CacheConfig`
+   --> src/main.rs:861:67
+--
+--
+
+warning: unused variable: `title`
+   --> src/intelligence/sentinel.rs:811:38
+--
+--
+
+warning: unused variable: `description`
+   --> src/intelligence/sentinel.rs:811:51
+--
+--
+
+warning: fields `learning_engine` and `sentinel_ai` are never read
+  --> src/intelligence/mod.rs:29:9
+--
+--
+
+warning: multiple associated items are never used
+   --> src/intelligence/mod.rs:270:12
+--
+--
+
+warning: field `common_patterns` is never read
+   --> src/intelligence/metrics.rs:148:5
+--
+--
+
+warning: fields `control_flow_keywords`, `loop_keywords`, `conditional_keywords`, `exception_keywords`, `function_keywords`, and `class_keywords` are never read
+   --> src/intelligence/metrics.rs:153:9
+--
+--
+
+warning: method `record_error_pattern` is never used
+  --> src/intelligence/patterns.rs:34:12
+--
+--
+
+warning: methods `generate_assessment`, `calculate_grade`, `identify_strengths`, `identify_weaknesses`, and `generate_recommendations` are never used
+   --> src/intelligence/quality.rs:123:12
+--
+--
+
+warning: fields `complexity_patterns` and `performance_patterns` are never read
+  --> src/intelligence/suggestions.rs:80:5
+--
+--
+
+warning: fields `name`, `description`, `detection_logic`, `suggested_fix`, and `example` are never read
+  --> src/intelligence/suggestions.rs:88:5
+--
+--
+
+warning: field `risk_level` is never read
+   --> src/intelligence/suggestions.rs:100:5
+--
+--
+
+warning: fields `name`, `performance_impact`, `detection_criteria`, and `optimization_suggestion` are never read
+   --> src/intelligence/suggestions.rs:108:5
+--
+--
+
+warning: field `trend_window_days` is never read
+  --> src/intelligence/trends.rs:22:5
+--
+--
+
+warning: methods `get_current_trends`, `record_snapshot`, `generate_insights`, `predict_future_trend`, and `extrapolate_trend` are never used
+   --> src/intelligence/trends.rs:64:12
+--
+--
+
+warning: fields `config` and `learning_data` are never read
+  --> src/intelligence/learning.rs:34:5
+--
+--
+
+warning: methods `learn_from_error`, `generate_adaptive_config`, `cleanup_learning_data`, and `get_learning_entries` are never used
+   --> src/intelligence/learning.rs:56:12
+--
+--
+
+warning: fields `user_profile`, `context_engine`, `prediction_engine`, `auto_pilot`, `learning_matrix`, and `productivity_enhancer` are never read
+  --> src/intelligence/sentinel.rs:13:9
+--
+--
+
+warning: fields `current_task`, `project_context`, `session_history`, `environmental_factors`, and `deadline_pressure` are never read
+  --> src/intelligence/sentinel.rs:84:9
+--
+--
+
+warning: fields `likely_next_actions`, `potential_issues`, `optimization_opportunities`, and `learning_recommendations` are never read
+  --> src/intelligence/sentinel.rs:94:9
+--
+--
+
+warning: fields `enabled`, `trust_level`, `auto_fix_categories`, `safety_constraints`, and `approval_required` are never read
+   --> src/intelligence/sentinel.rs:103:9
+--
+--
+
+warning: fields `skill_progression`, `mastery_levels`, `learning_paths`, `knowledge_gaps`, and `next_challenges` are never read
+   --> src/intelligence/sentinel.rs:113:9
+--
+--
+
+warning: fields `workflow_optimizations`, `template_suggestions`, `automation_opportunities`, `shortcut_recommendations`, and `focus_metrics` are never read
+   --> src/intelligence/sentinel.rs:123:9
+--
+--
+
+warning: multiple methods are never used
+   --> src/intelligence/sentinel.rs:390:12
+--
+--
+
+warning: method `update_context` is never used
+   --> src/intelligence/sentinel.rs:671:8
+--
+--
+
+warning: method `predict_needs` is never used
+   --> src/intelligence/sentinel.rs:713:8
+--
+--
+
+warning: method `record_interaction` is never used
+   --> src/intelligence/sentinel.rs:754:8
+--
+--
+
+warning: associated items `new`, `add_learning_focused`, `add_safety_warning`, `add_expert_insight`, and `add_security_expert_analysis` are never used
+   --> src/intelligence/sentinel.rs:784:8
+--
+--
+
+warning: `synx` (bin "synx") generated 32 warnings (run `cargo fix --bin "synx"` to apply 5 suggestions)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 4m 43s

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.synx.daemon</string>
+    
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/bin/synx</string>
+        <string>daemon</string>
+        <string>start</string>
+        <string>--config</string>
+        <string>/usr/local/etc/synx/daemon.toml</string>
+    </array>
+    
+    <key>RunAtLoad</key>
+    <true/>
+    
+    <key>KeepAlive</key>
+    <true/>
+    
+    <key>StandardOutPath</key>
+    <string>/var/log/synx-daemon.log</string>
+    
+    <key>StandardErrorPath</key>
+    <string>/var/log/synx-daemon.log</string>
+    
+    <key>UserName</key>
+    <string>_synx</string>
+    
+    <key>GroupName</key>
+    <string>_synx</string>
+    
+    <key>WorkingDirectory</key>
+    <string>/var/lib/synx</string>
+    
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+    
+    <key>ProcessType</key>
+    <string>Background</string>
+    
+    <key>LowPriorityIO</key>
+    <true/>
+    
+    <key>Nice</key>
+    <integer>1</integer>
+</dict>
+</plist>

@@ -13,6 +13,7 @@ pub use error_display::{ValidationError, ErrorType, ErrorDisplay, parse_validati
 
 // Import the configuration module
 
+#[derive(Default)]
 pub struct ValidationOptions {
     pub strict: bool,
     pub verbose: bool,

@@ -2,6 +2,7 @@ use clap::{Parser, Subcommand};
 use std::process;
 
 mod banner;
+mod intelligence;
 
 /// CLI arguments
 #[derive(Parser)]
@@ -76,6 +77,21 @@ enum Commands {
         #[command(subcommand)]
         action: CacheAction,
     },
+    /// Intelligence and analytics commands
+    Intelligence {
+        #[command(subcommand)]
+        action: IntelligenceAction,
+    },
+    /// Daemon management commands
+    Daemon {
+        #[command(subcommand)]
+        action: DaemonAction,
+    },
+    /// Performance monitoring and optimization commands
+    Performance {
+        #[command(subcommand)]
+        action: PerformanceAction,
+    },
 }
 
 #[derive(Subcommand)]
@@ -99,6 +115,97 @@ enum CacheAction {
     Clear,
     /// Show cache location
     Info,
+}
+
+#[derive(Subcommand)]
+enum IntelligenceAction {
+    /// Analyze a single file for complexity and quality metrics
+    Analyze {
+        /// File to analyze
+        path: String,
+        /// Output format (text, json)
+        #[arg(long, short = 'f', default_value = "text")]
+        format: String,
+    },
+    /// Analyze entire project for intelligence insights
+    Project {
+        /// Project directory to analyze
+        path: String,
+        /// Output format (text, json)
+        #[arg(long, short = 'f', default_value = "text")]
+        format: String,
+        /// Generate detailed report file
+        #[arg(long, short = 'r')]
+        report: Option<String>,
+    },
+    /// Show intelligence engine statistics
+    Stats,
+}
+
+#[derive(Subcommand)]
+enum DaemonAction {
+    /// Start the daemon (run in foreground)
+    Start {
+        /// Directories to watch
+        #[arg(short = 'w', long, value_delimiter = ',')]
+        watch_paths: Vec<String>,
+        /// Daemon configuration file
+        #[arg(short = 'c', long)]
+        config: Option<String>,
+        /// Run in foreground (don't daemonize)
+        #[arg(long)]
+        foreground: bool,
+    },
+    /// Stop the daemon
+    Stop,
+    /// Get daemon status
+    Status,
+    /// Restart the daemon
+    Restart,
+    /// Install daemon as system service
+    Install {
+        /// Service name
+        #[arg(long, default_value = "synx-daemon")]
+        service_name: String,
+        /// Path to synx binary
+        #[arg(long)]
+        binary_path: Option<String>,
+        /// Daemon configuration file
+        #[arg(short = 'c', long)]
+        config: Option<String>,
+    },
+    /// Uninstall daemon system service
+    Uninstall {
+        /// Service name
+        #[arg(long, default_value = "synx-daemon")]
+        service_name: String,
+    },
+    /// Generate default daemon configuration
+    InitConfig {
+        /// Configuration file path
+        #[arg(long, default_value = "synx-daemon.toml")]
+        path: String,
+    },
+    /// Show daemon statistics
+    Stats,
+}
+
+#[derive(Subcommand)]
+enum PerformanceAction {
+    /// Show performance statistics
+    Stats,
+    /// Clear performance cache
+    Clear,
+    /// Optimize performance caches
+    Optimize,
+    /// Run performance benchmark
+    Benchmark {
+        /// Directory to benchmark
+        path: String,
+        /// Number of iterations
+        #[arg(long, default_value_t = 3)]
+        iterations: usize,
+    },
 }
 
 fn main() {
@@ -151,6 +258,15 @@ fn main() {
         }
         Some(Commands::Cache { action }) => {
             handle_cache_command(action);
+        }
+        Some(Commands::Intelligence { action }) => {
+            handle_intelligence_command(action, &config);
+        }
+        Some(Commands::Daemon { action }) => {
+            handle_daemon_command(action, &config);
+        }
+        Some(Commands::Performance { action }) => {
+            handle_performance_command(action, &config);
         }
         None => {
             // Legacy mode: validate individual files
@@ -415,6 +531,480 @@ fn handle_cache_command(action: &CacheAction) {
                 println!("📋 No cache file found - nothing to clear");
                 process::exit(0);
             }
+        }
+    }
+}
+
+fn handle_intelligence_command(action: &IntelligenceAction, _config: &synx::config::Config) {
+    match action {
+        IntelligenceAction::Analyze { path, format } => {
+            println!("🧠 Analyzing file: {}", path);
+            
+            let file_path = std::path::PathBuf::from(path);
+            if !file_path.exists() {
+                eprintln!("❌ File does not exist: {}", path);
+                process::exit(1);
+            }
+            
+            // Read file content
+            let _content = match std::fs::read_to_string(&file_path) {
+                Ok(content) => content,
+                Err(e) => {
+                    eprintln!("❌ Failed to read file: {}", e);
+                    process::exit(1);
+                }
+            };
+            
+            // Create intelligence engine
+            let mut intelligence = match intelligence::IntelligenceEngine::new() {
+                Ok(engine) => engine,
+                Err(e) => {
+                    eprintln!("❌ Failed to initialize intelligence engine: {}", e);
+                    process::exit(1);
+                }
+            };
+            
+            // Generate file report
+            match intelligence.analyze_file(&file_path) {
+                Ok(report) => {
+                    match format.as_str() {
+                        "json" => {
+                            match serde_json::to_string_pretty(&report) {
+                                Ok(json) => println!("{}", json),
+                                Err(e) => {
+                                    eprintln!("❌ Failed to serialize report: {}", e);
+                                    process::exit(1);
+                                }
+                            }
+                        }
+                        _ => {
+                            // Default text format
+                            println!("{}", intelligence::format_file_report(&report));
+                        }
+                    }
+                    process::exit(0);
+                }
+                Err(e) => {
+                    eprintln!("❌ Analysis failed: {}", e);
+                    process::exit(1);
+                }
+            }
+        }
+        IntelligenceAction::Project { path, format, report } => {
+            println!("🧠 Analyzing project: {}", path);
+            
+            let project_path = std::path::PathBuf::from(path);
+            if !project_path.exists() {
+                eprintln!("❌ Project path does not exist: {}", path);
+                process::exit(1);
+            }
+            
+            if !project_path.is_dir() {
+                eprintln!("❌ Project path is not a directory: {}", path);
+                process::exit(1);
+            }
+            
+            // Create intelligence engine
+            let mut intelligence = match intelligence::IntelligenceEngine::new() {
+                Ok(engine) => engine,
+                Err(e) => {
+                    eprintln!("❌ Failed to initialize intelligence engine: {}", e);
+                    process::exit(1);
+                }
+            };
+            
+            // Generate project report
+            match intelligence.analyze_project(&project_path) {
+                Ok(project_report) => {
+                    match format.as_str() {
+                        "json" => {
+                            match serde_json::to_string_pretty(&project_report) {
+                                Ok(json) => println!("{}", json),
+                                Err(e) => {
+                                    eprintln!("❌ Failed to serialize report: {}", e);
+                                    process::exit(1);
+                                }
+                            }
+                        }
+                        _ => {
+                            // Default text format
+                            println!("{}", intelligence::format_project_report(&project_report));
+                        }
+                    }
+                    
+                    // Save detailed report if requested
+                    if let Some(report_path) = report {
+                        let detailed_report = intelligence::generate_detailed_report(&project_report);
+                        match std::fs::write(report_path, detailed_report) {
+                            Ok(()) => println!("📊 Detailed report saved to: {}", report_path),
+                            Err(e) => eprintln!("❌ Failed to save report: {}", e),
+                        }
+                    }
+                    
+                    process::exit(0);
+                }
+                Err(e) => {
+                    eprintln!("❌ Project analysis failed: {}", e);
+                    process::exit(1);
+                }
+            }
+        }
+        IntelligenceAction::Stats => {
+            println!("🧠 Intelligence Engine Statistics");
+            println!("================================\n");
+            
+            // Create intelligence engine to get stats
+            let intelligence = match intelligence::IntelligenceEngine::new() {
+                Ok(engine) => engine,
+                Err(e) => {
+                    eprintln!("❌ Failed to initialize intelligence engine: {}", e);
+                    process::exit(1);
+                }
+            };
+            let stats = intelligence.get_statistics();
+            
+            println!("Engine Status: Active");
+            println!("Supported Languages: {}", stats.supported_languages.join(", "));
+            println!("Available Metrics: {}", stats.available_metrics.len());
+            println!("Quality Factors: {}", stats.quality_factors.len());
+            println!("Suggestion Rules: {}", stats.suggestion_rules);
+            
+            println!("\nMetrics Available:");
+            for metric in &stats.available_metrics {
+                println!("  • {}", metric);
+            }
+            
+            println!("\nQuality Factors:");
+            for factor in &stats.quality_factors {
+                println!("  • {}", factor);
+            }
+            
+            process::exit(0);
+        }
+    }
+}
+
+#[tokio::main]
+async fn handle_daemon_command(action: &DaemonAction, _config: &synx::config::Config) {
+    use synx::daemon::{DaemonConfig, SynxDaemon, ServiceManager, install_service, uninstall_service};
+    use std::path::PathBuf;
+    
+    match action {
+        DaemonAction::Start { watch_paths, config, foreground } => {
+            println!("🚀 Starting Synx Daemon");
+            
+            // Load daemon configuration
+            let mut daemon_config = if let Some(config_path) = config {
+                match DaemonConfig::from_file(config_path) {
+                    Ok(config) => config,
+                    Err(e) => {
+                        eprintln!("❌ Failed to load daemon config: {}", e);
+                        process::exit(1);
+                    }
+                }
+            } else {
+                match DaemonConfig::load_default() {
+                    Ok(config) => config,
+                    Err(e) => {
+                        eprintln!("❌ Failed to load default daemon config: {}", e);
+                        process::exit(1);
+                    }
+                }
+            };
+            
+            // Override watch paths if provided
+            if !watch_paths.is_empty() {
+                daemon_config.watch_paths = watch_paths.iter().map(|p| PathBuf::from(p)).collect();
+            }
+            
+            // Set foreground mode
+            daemon_config.daemonize = !foreground;
+            
+            // Load synx configuration
+            let synx_config = match synx::config::Config::new(None, None, None, None, None, None) {
+                Ok(config) => config,
+                Err(e) => {
+                    eprintln!("❌ Failed to load synx config: {}", e);
+                    process::exit(1);
+                }
+            };
+            
+            // Create and start daemon
+            let mut daemon = match SynxDaemon::new(daemon_config, synx_config) {
+                Ok(daemon) => daemon,
+                Err(e) => {
+                    eprintln!("❌ Failed to create daemon: {}", e);
+                    process::exit(1);
+                }
+            };
+            
+            if let Err(e) = daemon.start().await {
+                eprintln!("❌ Daemon failed: {}", e);
+                process::exit(1);
+            }
+        }
+        
+        DaemonAction::Stop => {
+            println!("🛑 Stopping Synx Daemon");
+            // In a real implementation, this would send a signal to the running daemon
+            // For now, we'll just show how to stop a service
+            let manager = ServiceManager::new("synx-daemon".to_string(), PathBuf::new());
+            match manager.stop() {
+                Ok(()) => println!("✅ Daemon stopped successfully"),
+                Err(e) => {
+                    eprintln!("❌ Failed to stop daemon: {}", e);
+                    process::exit(1);
+                }
+            }
+        }
+        
+        DaemonAction::Status => {
+            println!("📊 Synx Daemon Status");
+            let manager = ServiceManager::new("synx-daemon".to_string(), PathBuf::new());
+            match manager.status() {
+                Ok(status) => {
+                    println!("Status: {}", status);
+                    process::exit(0);
+                }
+                Err(e) => {
+                    eprintln!("❌ Failed to get daemon status: {}", e);
+                    process::exit(1);
+                }
+            }
+        }
+        
+        DaemonAction::Restart => {
+            println!("🔄 Restarting Synx Daemon");
+            let manager = ServiceManager::new("synx-daemon".to_string(), PathBuf::new());
+            
+            // Stop then start
+            if let Err(e) = manager.stop() {
+                eprintln!("⚠️ Warning: Failed to stop daemon: {}", e);
+            }
+            
+            tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+            
+            match manager.start() {
+                Ok(()) => println!("✅ Daemon restarted successfully"),
+                Err(e) => {
+                    eprintln!("❌ Failed to restart daemon: {}", e);
+                    process::exit(1);
+                }
+            }
+        }
+        
+        DaemonAction::Install { service_name, binary_path, config } => {
+            println!("📦 Installing Synx Daemon as system service");
+            
+            let binary_path = if let Some(path) = binary_path {
+                PathBuf::from(path)
+            } else {
+                // Try to find the current binary
+                std::env::current_exe().unwrap_or_else(|_| PathBuf::from("synx"))
+            };
+            
+            let config_path = config.as_ref().map(|c| std::path::Path::new(c));
+            
+            match install_service(service_name, &binary_path, config_path) {
+                Ok(()) => {
+                    println!("✅ Service installed successfully");
+                    process::exit(0);
+                }
+                Err(e) => {
+                    eprintln!("❌ Failed to install service: {}", e);
+                    process::exit(1);
+                }
+            }
+        }
+        
+        DaemonAction::Uninstall { service_name } => {
+            println!("🗑️ Uninstalling Synx Daemon service");
+            
+            match uninstall_service(service_name) {
+                Ok(()) => {
+                    println!("✅ Service uninstalled successfully");
+                    process::exit(0);
+                }
+                Err(e) => {
+                    eprintln!("❌ Failed to uninstall service: {}", e);
+                    process::exit(1);
+                }
+            }
+        }
+        
+        DaemonAction::InitConfig { path } => {
+            println!("⚙️ Generating default daemon configuration");
+            
+            match DaemonConfig::generate_default_config(path) {
+                Ok(()) => {
+                    println!("✅ Created default daemon configuration at: {}", path);
+                    process::exit(0);
+                }
+                Err(e) => {
+                    eprintln!("❌ Failed to create daemon config: {}", e);
+                    process::exit(1);
+                }
+            }
+        }
+        
+        DaemonAction::Stats => {
+            println!("📈 Synx Daemon Statistics");
+            println!("=========================\n");
+            println!("This command would show daemon runtime statistics.");
+            println!("Currently not implemented - daemon must be running to provide stats.");
+            process::exit(0);
+        }
+    }
+}
+
+fn handle_performance_command(action: &PerformanceAction, _config: &synx::config::Config) {
+    use synx::performance::{PerformanceConfig, PerformanceEngine};
+    
+    match action {
+        PerformanceAction::Stats => {
+            println!("⚡ Performance Statistics");
+            println!("========================\n");
+            
+            let perf_config = PerformanceConfig::default();
+            match PerformanceEngine::new(perf_config) {
+                Ok(engine) => {
+                    match engine.get_stats() {
+                        Ok(stats) => {
+                            println!("Thread Pool Size: {}", stats.thread_pool_size);
+                            println!("Memory Usage: {}MB", stats.memory_usage);
+                            println!("\nCache Statistics:");
+                            println!("  Total Entries: {}", stats.cache_stats.total_entries);
+                            println!("  Cache Hits: {}", stats.cache_stats.hits);
+                            println!("  Cache Misses: {}", stats.cache_stats.misses);
+                            println!("  Hit Ratio: {:.1}%", stats.cache_stats.hit_ratio * 100.0);
+                            println!("  Memory Usage: {:.2}MB", stats.cache_stats.total_memory_mb);
+                            
+                            println!("\nValidation Metrics:");
+                            println!("  Total Files: {}", stats.validation_metrics.total_files);
+                            println!("  Average Time: {:.2}ms", stats.validation_metrics.average_validation_time_ms);
+                            println!("  Files/Second: {:.2}", stats.validation_metrics.files_per_second);
+                        }
+                        Err(e) => {
+                            eprintln!("❌ Failed to get performance stats: {}", e);
+                            process::exit(1);
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("❌ Failed to create performance engine: {}", e);
+                    process::exit(1);
+                }
+            }
+            
+            process::exit(0);
+        }
+        
+        PerformanceAction::Clear => {
+            println!("🧹 Clearing performance caches...");
+            
+            let perf_config = PerformanceConfig::default();
+            match PerformanceEngine::new(perf_config) {
+                Ok(mut engine) => {
+                    match engine.reset() {
+                        Ok(()) => {
+                            println!("✅ Performance caches cleared successfully");
+                        }
+                        Err(e) => {
+                            eprintln!("❌ Failed to clear caches: {}", e);
+                            process::exit(1);
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("❌ Failed to create performance engine: {}", e);
+                    process::exit(1);
+                }
+            }
+            
+            process::exit(0);
+        }
+        
+        PerformanceAction::Optimize => {
+            println!("⚙️ Optimizing performance caches...");
+            
+            let perf_config = PerformanceConfig::default();
+            match PerformanceEngine::new(perf_config) {
+                Ok(mut engine) => {
+                    match engine.optimize_cache() {
+                        Ok(()) => {
+                            println!("✅ Performance caches optimized successfully");
+                        }
+                        Err(e) => {
+                            eprintln!("❌ Failed to optimize caches: {}", e);
+                            process::exit(1);
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("❌ Failed to create performance engine: {}", e);
+                    process::exit(1);
+                }
+            }
+            
+            process::exit(0);
+        }
+        
+        PerformanceAction::Benchmark { path, iterations } => {
+            println!("🏃 Running performance benchmark on: {}", path);
+            println!("Iterations: {}\n", iterations);
+            
+            let path_buf = std::path::PathBuf::from(path);
+            if !path_buf.exists() {
+                eprintln!("❌ Path does not exist: {}", path);
+                process::exit(1);
+            }
+            
+            if !path_buf.is_dir() {
+                eprintln!("❌ Path is not a directory: {}", path);
+                process::exit(1);
+            }
+            
+            let mut total_times = Vec::new();
+            let validation_options = synx::validators::ValidationOptions {
+                strict: false,
+                verbose: false,
+                timeout: 30,
+                config: Some(synx::validators::FileValidationConfig::default()),
+            };
+            
+            for i in 1..=*iterations {
+                println!("🔄 Running iteration {} of {}...", i, iterations);
+                
+                let start = std::time::Instant::now();
+                match synx::validators::scan_directory(&path_buf, &validation_options, &[]) {
+                    Ok(result) => {
+                        let elapsed = start.elapsed();
+                        total_times.push(elapsed);
+                        
+                        println!("  ✅ Completed in {:.2}s ({} files)", 
+                               elapsed.as_secs_f64(), result.total_files);
+                    }
+                    Err(e) => {
+                        eprintln!("  ❌ Iteration {} failed: {}", i, e);
+                        process::exit(1);
+                    }
+                }
+            }
+            
+            // Calculate statistics
+            let total_time: std::time::Duration = total_times.iter().sum();
+            let avg_time = total_time / total_times.len() as u32;
+            let min_time = total_times.iter().min().unwrap();
+            let max_time = total_times.iter().max().unwrap();
+            
+            println!("\n📊 Benchmark Results:");
+            println!("====================\n");
+            println!("Average Time: {:.2}s", avg_time.as_secs_f64());
+            println!("Minimum Time: {:.2}s", min_time.as_secs_f64());
+            println!("Maximum Time: {:.2}s", max_time.as_secs_f64());
+            println!("Total Time: {:.2}s", total_time.as_secs_f64());
+            
+            process::exit(0);
         }
     }
 }

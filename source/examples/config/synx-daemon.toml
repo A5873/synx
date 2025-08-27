@@ -1,0 +1,83 @@
+# Synx Daemon Configuration Example
+# This file demonstrates the configuration options for the Synx Daemon
+
+# Directories and files to watch for changes
+watch_paths = [
+    "./src",
+    "./tests",
+    "./examples"
+]
+
+# Debounce time in milliseconds to prevent rapid re-validations
+# This helps avoid excessive validation when files are being edited rapidly
+debounce_ms = 500
+
+# Enable verbose logging for daemon operations  
+verbose_logging = true
+
+# Validation timeout in seconds
+# Maximum time to wait for a single file validation
+validation_timeout = 30
+
+# Health check interval in seconds
+# How often the daemon performs internal health checks
+health_check_interval = 60
+
+# PID file location
+# Set to null to disable PID file creation
+pid_file = "/var/run/synx-daemon.pid"
+
+# Log file location
+# Set to null to log to stdout/stderr instead
+log_file = "/var/log/synx-daemon.log"
+
+# Maximum log file size in MB before rotation
+max_log_size_mb = 100
+
+# Number of rotated log files to keep
+log_rotation_count = 5
+
+# Run as daemon (background process)
+# Set to false to run in foreground
+daemonize = true
+
+# User to run daemon as (Unix only)
+# Uncomment and set to run as specific user
+# run_as_user = "synx"
+
+# Group to run daemon as (Unix only)  
+# Uncomment and set to run as specific group
+# run_as_group = "synx"
+
+# File patterns to exclude from watching
+exclude_patterns = [
+    "*.tmp",
+    "*.swp", 
+    "*.bak",
+    "*~",
+    ".git/**",
+    "node_modules/**",
+    "target/**",
+    "build/**",
+    "dist/**",
+    "__pycache__/**", 
+    ".pytest_cache/**",
+    "*.log"
+]
+
+# Include patterns - if specified, only files matching these patterns will be watched
+# (overrides exclusions)
+include_patterns = [
+    # Uncomment to only watch specific file types:
+    # "*.rs",
+    # "*.py", 
+    # "*.js",
+    # "*.ts"
+]
+
+# Maximum number of concurrent validations
+max_concurrent_validations = 4
+
+# Enable system notifications for validation results
+# Requires notification system to be available
+enable_notifications = false
