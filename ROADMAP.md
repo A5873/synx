@@ -1,7 +1,7 @@
 # Synx Project Roadmap
 
 <div align="center">
-<img src="https://raw.githubusercontent.com/A5873/synx/gh-pages/assets/images/synx-logo.svg" alt="Synx Logo" width="156" height="156">
+<img src="https://raw.githubusercontent.com/A5873/synx/main/source/src/assets/synx-logo-v2.svg" alt="Synx Logo" width="156" height="156">
 
 **A Universal Syntax Validator and Linter Dispatcher**
 </div>
