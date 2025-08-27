@@ -9,12 +9,12 @@ pub fn print_banner() {
     // Enhanced ASCII banner with better typography
     println!();
     
-    // Top border
+    // Top border (49 chars total)
     stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Cyan)).set_bold(true)).unwrap();
     writeln!(&mut stdout, "╭─────────────────────────────────────────────────╮").unwrap();
     stdout.reset().unwrap();
     
-    // Title line with logo elements
+    // Title line: │  { ✓ } SYNX v0.3.0                         │
     stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Cyan)).set_bold(true)).unwrap();
     write!(&mut stdout, "│  ").unwrap();
     stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Blue)).set_bold(true)).unwrap();
@@ -23,27 +23,24 @@ pub fn print_banner() {
     write!(&mut stdout, "✓ ").unwrap();
     stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Blue)).set_bold(true)).unwrap();
     write!(&mut stdout, "}} ").unwrap();
-    
-    // Main title
     stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::White)).set_bold(true)).unwrap();
     write!(&mut stdout, "SYNX ").unwrap();
     stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Yellow)).set_bold(false)).unwrap();
     write!(&mut stdout, "v{}", env!("CARGO_PKG_VERSION")).unwrap();
-    
     stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Cyan)).set_bold(true)).unwrap();
-    writeln!(&mut stdout, "                │").unwrap();
+    writeln!(&mut stdout, "                         │").unwrap();
     stdout.reset().unwrap();
     
-    // Subtitle line
+    // Subtitle line: │  Universal Syntax Validator & Linter         │
     stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Cyan)).set_bold(true)).unwrap();
     write!(&mut stdout, "│  ").unwrap();
     stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Green)).set_bold(false)).unwrap();
-    write!(&mut stdout, "Universal Syntax Validator & Linter Dispatcher").unwrap();
+    write!(&mut stdout, "Universal Syntax Validator & Linter").unwrap();
     stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Cyan)).set_bold(true)).unwrap();
-    writeln!(&mut stdout, "  │").unwrap();
+    writeln!(&mut stdout, "         │").unwrap();
     stdout.reset().unwrap();
     
-    // Features line
+    // Features line: │  Parse • Validate • Lint • Format           │
     stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Cyan)).set_bold(true)).unwrap();
     write!(&mut stdout, "│  ").unwrap();
     stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Blue)).set_bold(false)).unwrap();
@@ -64,7 +61,7 @@ pub fn print_banner() {
     writeln!(&mut stdout, "           │").unwrap();
     stdout.reset().unwrap();
     
-    // Bottom border
+    // Bottom border (49 chars total)
     stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Cyan)).set_bold(true)).unwrap();
     writeln!(&mut stdout, "╰─────────────────────────────────────────────────╯").unwrap();
     stdout.reset().unwrap();
