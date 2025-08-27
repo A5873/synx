@@ -219,9 +219,6 @@ enum PerformanceAction {
 fn main() {
     // Initialize logging
     env_logger::init();
-    
-    // Show the banner on startup
-    banner::print_banner();
 
     // Parse command line arguments
     let args = Args::parse();
@@ -702,6 +699,8 @@ async fn handle_daemon_command(action: &DaemonAction, _config: &synx::config::Co
     
     match action {
         DaemonAction::Start { watch_paths, config, foreground } => {
+            // Show banner for long-running daemon operations
+            banner::print_banner();
             println!("🚀 Starting Synx Daemon");
             
             // Load daemon configuration
@@ -1021,6 +1020,8 @@ fn handle_performance_command(action: &PerformanceAction, _config: &synx::config
 }
 
 fn handle_monitor_command(paths: &[String], _auto_validate: bool, _config: &synx::config::Config) {
+    // Show banner for interactive TUI
+    banner::print_banner();
     println!("🖥️ Starting Interactive TUI Monitor");
     
     // Convert paths to PathBuf
