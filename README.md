@@ -85,6 +85,7 @@ synx scan ./codebase --exclude "node_modules/*" "*.test.*" --parallel 8
 
 ### 🎨 **Rich User Experience**
 - **Colorized Output**: Beautiful terminal interface with syntax highlighting
+- **Interactive TUI**: Full-featured terminal UI for interactive issue review and fixing
 - **Multiple Formats**: Text, JSON, and structured report generation
 - **Watch Mode**: Real-time validation on file changes
 - **Verbose Logging**: Detailed error messages and debugging information
@@ -123,6 +124,36 @@ synx validate *.py --watch --interval 1
 # Watch entire directories
 synx scan ./src --watch --verbose
 ```
+
+### Interactive TUI Mode (NEW!)
+
+Synx features a powerful Terminal User Interface for interactive issue review and fixing:
+
+```bash
+# Launch interactive mode directly
+synx validate --interactive src/
+
+# Or use with existing validation report
+synx interactive --report validation_report.json
+```
+
+**Interactive Features:**
+- 🎯 **Four-tab interface**: Issues, Syntax Tree, Actions, Explanation
+- 🖥️ **Syntax-highlighted code** with issue location highlighting
+- 🔧 **Interactive fixing**: Apply suggested fixes or choose alternatives
+- 📚 **Rule explanations**: Learn why issues exist with code examples
+- ⌨️ **Keyboard navigation**: Move through issues and files efficiently
+- 📊 **Session tracking**: Keep track of fixed, ignored, and pending issues
+
+**Key Shortcuts:**
+- `Tab` - Switch between views
+- `n`/`p` - Navigate issues
+- `f` - Fix current issue
+- `i` - Ignore current issue
+- `e` - Show explanation
+- `q` - Quit
+
+See [Interactive TUI Guide](source/docs/TUI_GUIDE.md) for complete documentation.
 
 ### CI/CD Integration
 ```yaml
