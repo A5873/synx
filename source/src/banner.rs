@@ -1,24 +1,75 @@
 use termcolor::{ColorChoice, ColorSpec, StandardStream, WriteColor};
 use std::io::Write;
 
-/// Print a lightweight banner for CLI usage (only when appropriate)
+/// Print a beautiful ASCII banner for CLI usage (only when appropriate)
 pub fn print_banner() {
     // Only show banner in interactive/long-running operations
-    // Most CLI operations should be silent by default
     let mut stdout = StandardStream::stdout(ColorChoice::Auto);
     
-    // Print a minimal, single-line banner
+    // Enhanced ASCII banner with better typography
+    println!();
+    
+    // Top border
+    stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Cyan)).set_bold(true)).unwrap();
+    writeln!(&mut stdout, "╭─────────────────────────────────────────────────╮").unwrap();
+    stdout.reset().unwrap();
+    
+    // Title line with logo elements
+    stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Cyan)).set_bold(true)).unwrap();
+    write!(&mut stdout, "│  ").unwrap();
+    stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Blue)).set_bold(true)).unwrap();
+    write!(&mut stdout, "{{ ").unwrap();
+    stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Magenta)).set_bold(true)).unwrap();
+    write!(&mut stdout, "✓ ").unwrap();
+    stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Blue)).set_bold(true)).unwrap();
+    write!(&mut stdout, "}} ").unwrap();
+    
+    // Main title
+    stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::White)).set_bold(true)).unwrap();
+    write!(&mut stdout, "SYNX ").unwrap();
+    stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Yellow)).set_bold(false)).unwrap();
+    write!(&mut stdout, "v{}", env!("CARGO_PKG_VERSION")).unwrap();
+    
+    stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Cyan)).set_bold(true)).unwrap();
+    writeln!(&mut stdout, "                 │").unwrap();
+    stdout.reset().unwrap();
+    
+    // Subtitle line
+    stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Cyan)).set_bold(true)).unwrap();
+    write!(&mut stdout, "│  ").unwrap();
+    stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Green)).set_bold(false)).unwrap();
+    write!(&mut stdout, "Universal Syntax Validator & Linter Dispatcher").unwrap();
+    stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Cyan)).set_bold(true)).unwrap();
+    writeln!(&mut stdout, "  │").unwrap();
+    stdout.reset().unwrap();
+    
+    // Features line
+    stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Cyan)).set_bold(true)).unwrap();
+    write!(&mut stdout, "│  ").unwrap();
+    stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Blue)).set_bold(false)).unwrap();
+    write!(&mut stdout, "Parse").unwrap();
     stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Cyan))).unwrap();
-    write!(&mut stdout, "✨ Synx").unwrap();
+    write!(&mut stdout, " • ").unwrap();
+    stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Green)).set_bold(false)).unwrap();
+    write!(&mut stdout, "Validate").unwrap();
+    stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Cyan))).unwrap();
+    write!(&mut stdout, " • ").unwrap();
+    stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Yellow)).set_bold(false)).unwrap();
+    write!(&mut stdout, "Lint").unwrap();
+    stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Cyan))).unwrap();
+    write!(&mut stdout, " • ").unwrap();
+    stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Magenta)).set_bold(false)).unwrap();
+    write!(&mut stdout, "Format").unwrap();
+    stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Cyan)).set_bold(true)).unwrap();
+    writeln!(&mut stdout, "            │").unwrap();
     stdout.reset().unwrap();
     
-    stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::White))).unwrap();
-    write!(&mut stdout, " v{}", env!("CARGO_PKG_VERSION")).unwrap();
+    // Bottom border
+    stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Cyan)).set_bold(true)).unwrap();
+    writeln!(&mut stdout, "╰─────────────────────────────────────────────────╯").unwrap();
     stdout.reset().unwrap();
     
-    stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Green))).unwrap();
-    writeln!(&mut stdout, " - Universal Syntax Validator").unwrap();
-    stdout.reset().unwrap();
+    println!();
 }
 
 /// Print just the name and version (ultra-minimal)
