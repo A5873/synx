@@ -31,7 +31,7 @@ pub fn print_banner() {
     write!(&mut stdout, "v{}", env!("CARGO_PKG_VERSION")).unwrap();
     
     stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Cyan)).set_bold(true)).unwrap();
-    writeln!(&mut stdout, "                 │").unwrap();
+    writeln!(&mut stdout, "                │").unwrap();
     stdout.reset().unwrap();
     
     // Subtitle line
@@ -61,7 +61,7 @@ pub fn print_banner() {
     stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Magenta)).set_bold(false)).unwrap();
     write!(&mut stdout, "Format").unwrap();
     stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Cyan)).set_bold(true)).unwrap();
-    writeln!(&mut stdout, "            │").unwrap();
+    writeln!(&mut stdout, "           │").unwrap();
     stdout.reset().unwrap();
     
     // Bottom border
