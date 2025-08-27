@@ -5,6 +5,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
+use std::path::Path;
 use serde::{Serialize, Deserialize};
 
 /// Resource usage metrics
@@ -54,8 +55,19 @@ impl PerformanceMonitor {
         }
     }
     
-    /// Record a validation event
-    pub fn record_validation(&self, file_type: &str, duration: Duration, success: bool) {
+    /// Record a validation event with file path
+    pub fn record_validation(&self, file_path: &Path, success: bool, duration: Duration) {
+        // Detect file type from path
+        let file_type = file_path.extension()
+            .and_then(|ext| ext.to_str())
+            .unwrap_or("unknown")
+            .to_lowercase();
+        
+        self.record_validation_by_type(&file_type, duration, success);
+    }
+    
+    /// Record a validation event by file type
+    pub fn record_validation_by_type(&self, file_type: &str, duration: Duration, success: bool) {
         let mut metrics = self.metrics.write().unwrap();
         
         metrics.total_files += 1;
@@ -180,8 +192,8 @@ mod tests {
     fn test_record_validation() {
         let monitor = PerformanceMonitor::new();
         
-        monitor.record_validation("rust", Duration::from_millis(100), true);
-        monitor.record_validation("python", Duration::from_millis(200), false);
+        monitor.record_validation_by_type("rust", Duration::from_millis(100), true);
+        monitor.record_validation_by_type("python", Duration::from_millis(200), false);
         
         let metrics = monitor.get_metrics();
         assert_eq!(metrics.total_files, 2);
@@ -215,8 +227,8 @@ mod tests {
     fn test_performance_report() {
         let monitor = PerformanceMonitor::new();
         
-        monitor.record_validation("rust", Duration::from_millis(100), true);
-        monitor.record_validation("python", Duration::from_millis(200), true);
+        monitor.record_validation_by_type("rust", Duration::from_millis(100), true);
+        monitor.record_validation_by_type("python", Duration::from_millis(200), true);
         
         let report = monitor.generate_report();
         assert!(report.contains("Performance Report"));

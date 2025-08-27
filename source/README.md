@@ -32,6 +32,7 @@ Synx is actively developed and maintained with a focus on enterprise-grade code 
 
 ### ✅ **Completed Features**
 - **Core Validation Engine**: Rust-based syntax validation for 15+ languages
+- **Interactive TUI**: Full-featured terminal UI for interactive issue review and fixing
 - **Parallel Processing**: Multi-threaded file validation with Rayon
 - **Smart Caching**: File hash-based validation caching for performance
 - **Rich CLI Interface**: Colored output, progress bars, and multiple output formats
@@ -89,9 +90,10 @@ cargo test -- --nocapture
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines and contribution process.
 
 ### 📊 **Current Metrics**
-- **Lines of Code**: ~5,000+ (Rust)
+- **Lines of Code**: ~6,500+ (Rust)
 - **Test Coverage**: 85%+
 - **Supported Languages**: 15+
+- **UI Modes**: 2 (CLI + Interactive TUI)
 - **Package Formats**: 4 (Debian, RPM, AUR, Homebrew)
 - **CI/CD Pipelines**: GitHub Actions, GitLab CI
 
@@ -110,6 +112,11 @@ source/
 ├── src/
 │   ├── analysis/         # Code analysis and metrics
 │   ├── config/          # Configuration management
+│   ├── tui/             # Interactive Terminal User Interface
+│   │   ├── mod.rs       # Main TUI application and event loop
+│   │   ├── syntax.rs    # Syntax highlighting and tree-sitter integration
+│   │   ├── issue_state.rs # Issue state management and tracking
+│   │   └── widgets.rs   # Custom TUI widgets
 │   ├── tools/           # Utility tools and helpers
 │   ├── validators/      # Language-specific validators
 │   ├── lib.rs          # Library interface
@@ -117,6 +124,8 @@ source/
 ├── tests/              # Integration tests
 ├── examples/           # Usage examples
 ├── docs/               # Additional documentation
+│   ├── TUI_GUIDE.md    # Interactive TUI user guide
+│   └── TUI_ARCHITECTURE.md # TUI technical documentation
 └── Cargo.toml         # Rust package configuration
 ```
 

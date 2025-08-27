@@ -79,6 +79,7 @@ termcolor = "1.4"
 tui = { version = "0.19", default-features = false, features = ["crossterm", "serde"] }
 crossterm = { version = "0.26", features = ["event-stream"] }
 uuid = { version = "1.3", features = ["v4"] }
+sysinfo = "0.29"
 
 # Syntax highlighting and AST
 tree-sitter = "0.20"

@@ -4,7 +4,7 @@
 
 use std::path::PathBuf;
 use serde::{Serialize, Deserialize};
-use crate::validators::ValidationIssue;
+use super::ValidationIssue;
 
 /// Available actions for an issue
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

@@ -9,7 +9,7 @@ use std::time::Duration;
 use anyhow::Result;
 
 /// Severity level for analysis issues.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
 pub enum IssueSeverity {
     /// Low severity issues are informational and might not require immediate attention.
     Low,
@@ -19,6 +19,17 @@ pub enum IssueSeverity {
     High,
     /// Critical issues that must be fixed immediately to avoid system failure.
     Critical,
+}
+
+impl std::fmt::Display for IssueSeverity {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            IssueSeverity::Low => write!(f, "Low"),
+            IssueSeverity::Medium => write!(f, "Medium"),
+            IssueSeverity::High => write!(f, "High"),
+            IssueSeverity::Critical => write!(f, "Critical"),
+        }
+    }
 }
 
 /// Depth level for analysis.
